@@ -1,56 +1,40 @@
-# Welcome to your Expo app 👋
+# 구데기 앱
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+치지직 방송 시작, 방제 변경, 카테고리 변경 및 키워드 알림을 제공하는 Expo 네이티브 앱입니다.
 
-## Get started
+## 구성
 
-1. Install dependencies
+- Expo SDK 57 / React Native / TypeScript
+- Expo Router Native Tabs
+- iOS 시스템 `formSheet`와 Android 네이티브 bottom sheet
+- AsyncStorage 기반 기기별 알림 설정
+- Expo Notifications 기반 APNs/FCM 토큰 발급
+- 기존 `gudegi-server` API 재사용
 
-   ```bash
-   npm install
-   ```
+웹 앱 코드는 포함하지 않습니다. 공개 API 주소는 `EXPO_PUBLIC_API_BASE_URL`로 주입하며 치지직 API 키, Apple 인증서, FCM 서비스 계정 키는 앱 번들 또는 저장소에 넣지 않습니다.
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## 시작
 
 ```bash
-npm run reset-project
+cp .env.example .env.local
+pnpm install
+pnpm ios
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+실기기 알림과 App Store 빌드는 Expo development build 및 EAS 설정 후 검증합니다.
 
-### Other setup steps
+```bash
+eas build --profile development --platform ios
+eas build --profile production --platform ios
+eas submit --platform ios
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## 현재 포함된 화면
 
-## Learn more
+- 알림 관리: 전체 선택, 스트리머별 알림 토글, 카테고리와 세부 조건
+- 스트리머: 검색 및 알림 목록 추가/삭제
+- 설정: 알림 권한, 서버 연결 상태, 앱 정보
+- 알림 조건 시트: 방송 시작, 방제 변경, 카테고리 변경, 키워드
+- 카테고리 시트: 전체 또는 복수 카테고리 선택
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+API가 연결되지 않은 로컬 환경에서는 화면 검증용 미리보기 데이터가 표시됩니다.

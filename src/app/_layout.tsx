@@ -1,18 +1,57 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { AlertStoreProvider } from '@/features/alerts/alert-store';
+import { palette } from '@/constants/theme';
 
-SplashScreen.preventAutoHideAsync();
+const gudegiTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: palette.accent,
+    background: palette.background,
+    card: palette.surface,
+    border: palette.border,
+    text: palette.text,
+  },
+};
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={gudegiTheme}>
+        <AlertStoreProvider>
+          <StatusBar style="light" />
+          <Stack screenOptions={{ contentStyle: { backgroundColor: palette.background } }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="alert-rules"
+              options={{
+                headerShown: false,
+                presentation: 'formSheet',
+                sheetAllowedDetents: [0.72, 1],
+                sheetInitialDetentIndex: 0,
+                sheetGrabberVisible: true,
+                sheetCornerRadius: 24,
+                contentStyle: { backgroundColor: palette.surface },
+              }}
+            />
+            <Stack.Screen
+              name="category-filter"
+              options={{
+                headerShown: false,
+                presentation: 'formSheet',
+                sheetAllowedDetents: [0.62, 0.92],
+                sheetInitialDetentIndex: 1,
+                sheetGrabberVisible: true,
+                sheetCornerRadius: 24,
+                contentStyle: { backgroundColor: palette.surface },
+              }}
+            />
+          </Stack>
+        </AlertStoreProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

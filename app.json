@@ -1,16 +1,22 @@
 {
   "expo": {
-    "name": "gudegi-app",
+    "name": "구데기",
     "slug": "gudegi-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "gudegiapp",
-    "userInterfaceStyle": "automatic",
+    "scheme": "gudegi",
+    "userInterfaceStyle": "dark",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.iftype.gudegi",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSUserNotificationsUsageDescription": "방송 시작, 방제 변경, 카테고리 및 키워드 알림을 보내기 위해 사용합니다."
+      }
     },
     "android": {
+      "package": "com.iftype.gudegi",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -28,11 +34,12 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#141517",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true,
