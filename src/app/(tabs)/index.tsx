@@ -1,4 +1,5 @@
 import { SymbolView } from 'expo-symbols';
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
   Pressable,
@@ -18,6 +19,7 @@ import { palette, radius } from '@/constants/theme';
 import { useAlertStore } from '@/features/alerts/alert-store';
 
 export default function AlertsScreen() {
+  const router = useRouter();
   const store = useAlertStore();
   const [query, setQuery] = useState('');
   const preferenceByChannel = useMemo(
@@ -44,7 +46,7 @@ export default function AlertsScreen() {
           <Text style={styles.description}>이 기기에 저장한 {enabledCount}명의 맞춤 알림을 관리합니다.</Text>
         </View>
 
-        <Pressable style={styles.pushBanner}>
+        <Pressable onPress={() => router.push('/(tabs)/settings')} style={styles.pushBanner}>
           <SymbolView name={{ ios: 'bell.badge', android: 'notifications_active' }} size={18} tintColor={palette.accentText} />
           <Text style={styles.pushBannerText}>이 기기에서 알림 받기</Text>
         </Pressable>

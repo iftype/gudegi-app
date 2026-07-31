@@ -4,6 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AlertStoreProvider } from '@/features/alerts/alert-store';
 import { palette } from '@/constants/theme';
+import { NotificationResponseListener } from '@/notifications/notification-response-listener';
 
 const gudegiTheme = {
   ...DarkTheme,
@@ -22,6 +23,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={gudegiTheme}>
         <AlertStoreProvider>
+          <NotificationResponseListener />
           <StatusBar style="light" />
           <Stack screenOptions={{ contentStyle: { backgroundColor: palette.background } }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

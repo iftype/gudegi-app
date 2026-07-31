@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 import { api } from '@/api/client';
 import { demoCategories, demoPreferences, demoStreamers } from '@/data/demo';
+import { syncNativePushPreferences } from '@/notifications/native-push';
 import type { AlertPreference, AlertRules, CategoryFilter, LiveCategory, Streamer } from '@/types';
 
 const STORAGE_KEY = 'gudegi-native-alert-preferences-v1';
@@ -63,6 +64,10 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (!hydrated) return;
     void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+    const timer = setTimeout(() => {
+      void syncNativePushPreferences(preferences).catch(() => undefined);
+    }, 400);
+    return () => clearTimeout(timer);
   }, [hydrated, preferences]);
 
   const refresh = useCallback(async () => {
@@ -75,6 +80,11 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
       ]);
       setStreamers(streamerResult.data);
       setCategories(categoryResult.data);
+      setPreferences((current) => current.length > 0 && current.every(
+        (preference) => preference.channelId.startsWith('demo-'),
+      )
+        ? streamerResult.data.slice(0, 2).map((streamer) => defaultPreference(streamer.channelId))
+        : current);
       setUsingDemoData(false);
     } catch {
       setUsingDemoData(true);

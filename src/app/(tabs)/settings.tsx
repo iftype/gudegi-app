@@ -1,14 +1,15 @@
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/screen-header';
 import { palette, radius } from '@/constants/theme';
 import { useAlertStore } from '@/features/alerts/alert-store';
 import { registerForNotifications } from '@/notifications/register';
+import { connectNativePush, sendNativePushTest } from '@/notifications/native-push';
 
-type PermissionState = 'idle' | 'working' | 'granted' | 'denied' | 'device_required';
+type PermissionState = 'idle' | 'working' | 'connected' | 'permission_only' | 'denied' | 'device_required' | 'failed';
 
 export default function SettingsScreen() {
   const store = useAlertStore();
@@ -18,20 +19,47 @@ export default function SettingsScreen() {
     setPermission('working');
     try {
       const result = await registerForNotifications();
-      setPermission(result.status);
+      if (result.status !== 'granted') {
+        setPermission(result.status);
+        return;
+      }
+      if (!result.token) {
+        setPermission('permission_only');
+        return;
+      }
+      await connectNativePush(
+        result.token,
+        Platform.OS === 'android' ? 'android' : 'ios',
+        store.preferences,
+      );
+      setPermission('connected');
     } catch {
-      setPermission('denied');
+      setPermission('failed');
     }
   }
 
-  const permissionLabel = permission === 'granted'
-    ? '알림 권한이 연결되었습니다'
+  async function testNotifications() {
+    setPermission('working');
+    try {
+      await sendNativePushTest();
+      setPermission('connected');
+    } catch {
+      setPermission('failed');
+    }
+  }
+
+  const permissionLabel = permission === 'connected'
+    ? '기기 알림 연결됨'
+    : permission === 'permission_only'
+      ? '권한 승인됨 · 개발 빌드 연결 필요'
     : permission === 'denied'
       ? '알림 권한이 거부되었습니다'
       : permission === 'device_required'
         ? '실제 기기에서 연결할 수 있습니다'
-        : permission === 'working'
+      : permission === 'working'
           ? '연결 중…'
+          : permission === 'failed'
+            ? '연결 실패 · 다시 시도'
           : '알림 권한 연결';
 
   return (
@@ -57,9 +85,14 @@ export default function SettingsScreen() {
           <Pressable
             disabled={permission === 'working'}
             onPress={() => void connectNotifications()}
-            style={[styles.primaryButton, permission === 'granted' && styles.connectedButton]}>
+            style={[styles.primaryButton, permission === 'connected' && styles.connectedButton]}>
             <Text style={styles.primaryButtonText}>{permissionLabel}</Text>
           </Pressable>
+          {permission === 'connected' && (
+            <Pressable onPress={() => void testNotifications()} style={styles.secondaryButton}>
+              <Text style={styles.secondaryButtonText}>테스트 알림 보내기</Text>
+            </Pressable>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -102,6 +135,8 @@ const styles = StyleSheet.create({
   primaryButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.accent, borderRadius: radius.control },
   connectedButton: { backgroundColor: palette.surfaceSelected },
   primaryButtonText: { color: palette.accentText, fontSize: 12, fontWeight: '900' },
+  secondaryButton: { minHeight: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: palette.border, borderRadius: radius.control },
+  secondaryButtonText: { color: palette.text, fontSize: 11, fontWeight: '800' },
   statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   statusLabel: { color: palette.text, fontSize: 12, fontWeight: '700' },
   statusValue: { color: palette.textSecondary, fontSize: 11 },
