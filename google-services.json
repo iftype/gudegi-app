@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "864236158845",
+    "project_id": "gudegi-83dc6",
+    "storage_bucket": "gudegi-83dc6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:864236158845:android:8c4c138f82ad60ba2f9614",
+        "android_client_info": {
+          "package_name": "com.iftype.gudegi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABxEzoz4T3DyYb1IVmOtkV5z4W-P6VXV8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

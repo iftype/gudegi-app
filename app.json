@@ -17,6 +17,7 @@
     },
     "android": {
       "package": "com.iftype.gudegi",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/gudegi-mascot-icon.png",
@@ -44,6 +45,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c4d2317a-6677-4302-b7b9-000f6d59df08"
+      }
+    },
+    "owner": "iftype"
   }
 }
