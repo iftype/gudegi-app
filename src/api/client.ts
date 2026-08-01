@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-import type { LiveCategory, Streamer } from '@/types';
+import type { AlertPreference, LiveCategory, Streamer, StreamerAlertEvent } from '@/types';
 
 const fallbackHost = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
 export const apiBaseUrl = (
@@ -26,6 +26,32 @@ export async function apiRequest<T>(
 
 export const api = {
   streamers: (signal?: AbortSignal) => apiRequest<{ data: Streamer[] }>('/streamers', { signal }),
-  categories: (signal?: AbortSignal) =>
-    apiRequest<{ data: LiveCategory[]; syncedAt: number | null }>('/categories', { signal }),
+  searchCategories: (query: string, signal?: AbortSignal) => apiRequest<{
+    data: LiveCategory[];
+    syncedAt: number;
+  }>(`/categories/search?query=${encodeURIComponent(query)}`, { signal }),
+  streamerAlertEvents: (channelId: string, signal?: AbortSignal) => apiRequest<{
+    data: StreamerAlertEvent[];
+  }>(`/streamers/${encodeURIComponent(channelId)}/alert-events`, { signal }),
+  beginAccountImport: () => apiRequest<{ data: { authorizationUrl: string } }>(
+    '/auth/chzzk/start?native=1',
+  ),
+  completeAccountImport: (code: string, state: string) => apiRequest<{
+    data: {
+      user: { channelId: string };
+      import: { supported: string[]; preferences: AlertPreference[] };
+    };
+  }>('/auth/chzzk/callback', {
+    method: 'POST',
+    body: JSON.stringify({ code, state }),
+  }),
+  feedback: (payload: {
+    category: 'idea' | 'bug' | 'usability' | 'streamer_request';
+    message?: string;
+    streamerName?: string;
+    anonymousId: string;
+  }) => apiRequest<{ data: { id: number; supported?: boolean } }>('/feedback', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
 };

@@ -5,7 +5,8 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SymbolButton } from '@/components/symbol-button';
 import { palette, radius } from '@/constants/theme';
-import type { AlertPreference, LiveCategory, Streamer } from '@/types';
+import { openChzzkLive } from '@/navigation/open-chzzk-live';
+import type { AlertPreference, Streamer } from '@/types';
 
 function elapsedLabel(startedAt?: number | null) {
   if (!startedAt) return '';
@@ -16,33 +17,35 @@ function elapsedLabel(startedAt?: number | null) {
   return rest ? `${hours}시간 ${rest}분` : `${hours}시간`;
 }
 
-function categoryLabels(preference: AlertPreference, categories: LiveCategory[]) {
-  if (preference.categoryFilter.allCategories) return ['전체 카테고리'];
-  const byKey = new Map(categories.map((category) => [category.categoryKey, category]));
-  return preference.categoryFilter.categoryKeys.map((key) => {
-    const category = byKey.get(key);
-    return category?.categoryId === 'talk' ? '저챗' : category?.categoryValue ?? key;
-  });
+let sheetNavigationLocked = false;
+
+function openSheet(channelId: string) {
+  if (sheetNavigationLocked) return;
+  sheetNavigationLocked = true;
+  router.navigate({ pathname: '/alert-rules', params: { channelId } });
+  setTimeout(() => {
+    sheetNavigationLocked = false;
+  }, 700);
 }
 
 export function AlertRow({
   streamer,
   preference,
-  categories,
   onToggle,
   onRemove,
 }: {
   streamer: Streamer;
   preference: AlertPreference;
-  categories: LiveCategory[];
   onToggle: () => void;
   onRemove: () => void;
 }) {
-  const labels = categoryLabels(preference, categories);
-
   return (
     <View style={[styles.row, preference.enabled && styles.rowActive]}>
-      <View style={styles.avatarWrap}>
+      <Pressable
+        accessibilityLabel={streamer.isLive ? `${streamer.channelName} 방송 열기` : `${streamer.channelName} 프로필`}
+        disabled={!streamer.isLive}
+        onPress={() => void openChzzkLive(streamer.channelId)}
+        style={({ pressed }) => [styles.avatarWrap, pressed && styles.avatarPressed]}>
         {streamer.channelImageUrl ? (
           <Image source={streamer.channelImageUrl} contentFit="cover" style={styles.avatar} />
         ) : (
@@ -51,7 +54,7 @@ export function AlertRow({
           </View>
         )}
         {streamer.isLive && <Text style={styles.liveBadge}>LIVE</Text>}
-      </View>
+      </Pressable>
 
       <View style={styles.main}>
         <View style={styles.titleLine}>
@@ -74,10 +77,10 @@ export function AlertRow({
             <SymbolButton
               name={{ ios: 'checklist', android: 'checklist' }}
               label={`${streamer.channelName} 알림 조건`}
-              onPress={() => router.push({ pathname: '/alert-rules', params: { channelId: streamer.channelId } })}
+              onPress={() => openSheet(streamer.channelId)}
             />
             <Pressable
-              accessibilityLabel={`${streamer.channelName} 더보기`}
+              accessibilityLabel={`${streamer.channelName} 알림 목록에서 삭제`}
               hitSlop={6}
               onPress={() => Alert.alert(
                 streamer.channelName,
@@ -88,24 +91,11 @@ export function AlertRow({
                 ],
               )}
               style={styles.moreButton}>
-              <SymbolView name={{ ios: 'ellipsis', android: 'more_horiz' }} size={18} tintColor={palette.textMuted} />
+              <SymbolView name={{ ios: 'trash', android: 'delete' }} size={16} tintColor={palette.textMuted} />
             </Pressable>
           </View>
         </View>
 
-        <View style={styles.categoryLine}>
-          <Pressable
-            accessibilityLabel={`${streamer.channelName} 카테고리 선택`}
-            onPress={() => router.push({ pathname: '/category-filter', params: { channelId: streamer.channelId } })}
-            style={styles.categoryButton}>
-            <SymbolView name={{ ios: 'line.3.horizontal.decrease', android: 'filter_list' }} size={12} tintColor={palette.textSecondary} />
-            <Text style={styles.categoryButtonText}>카테고리</Text>
-          </Pressable>
-          <View style={styles.tags}>
-            {labels.slice(0, 2).map((label) => <Text key={label} style={styles.tag}>{label}</Text>)}
-            {labels.length > 2 && <Text style={styles.tag}>+{labels.length - 2}</Text>}
-          </View>
-        </View>
       </View>
     </View>
   );
@@ -113,7 +103,7 @@ export function AlertRow({
 
 const styles = StyleSheet.create({
   row: {
-    minHeight: 76,
+    minHeight: 66,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -125,6 +115,7 @@ const styles = StyleSheet.create({
   },
   rowActive: { backgroundColor: '#232527' },
   avatarWrap: { width: 42, height: 48, alignItems: 'center', justifyContent: 'flex-start' },
+  avatarPressed: { opacity: 0.65 },
   avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: palette.surfaceRaised },
   avatarFallback: {
     width: 42,
@@ -146,7 +137,7 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '900',
   },
-  main: { flex: 1, minWidth: 0, gap: 7 },
+  main: { flex: 1, minWidth: 0 },
   titleLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   identity: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: { flexShrink: 1, color: palette.text, fontSize: 15, fontWeight: '900', letterSpacing: -0.4 },
@@ -154,25 +145,4 @@ const styles = StyleSheet.create({
   elapsedText: { color: palette.textSecondary, fontSize: 10, fontWeight: '700' },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   moreButton: { width: 26, height: 34, alignItems: 'center', justifyContent: 'center' },
-  categoryLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  categoryButton: {
-    height: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    backgroundColor: palette.surfaceRaised,
-    borderRadius: radius.control,
-  },
-  categoryButtonText: { color: palette.textSecondary, fontSize: 9, fontWeight: '700' },
-  tags: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5, overflow: 'hidden' },
-  tag: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    color: palette.textSecondary,
-    backgroundColor: palette.surfaceRaised,
-    borderRadius: radius.control,
-    fontSize: 9,
-    fontWeight: '700',
-  },
 });

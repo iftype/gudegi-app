@@ -1,11 +1,12 @@
 import * as Notifications from 'expo-notifications';
 import { useEffect } from 'react';
-import { Linking } from 'react-native';
+
+import { openChzzkLive } from '@/navigation/open-chzzk-live';
 
 function openNotification(response: Notifications.NotificationResponse) {
   const channelId = response.notification.request.content.data?.channelId;
   if (typeof channelId !== 'string' || !/^[a-f0-9]{32}$/.test(channelId)) return;
-  void Linking.openURL(`https://chzzk.naver.com/live/${encodeURIComponent(channelId)}`);
+  void openChzzkLive(channelId);
   Notifications.clearLastNotificationResponse();
 }
 

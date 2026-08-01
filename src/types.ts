@@ -40,3 +40,13 @@ export type AlertPreference = AlertRules & {
   enabled: boolean;
   categoryFilter: CategoryFilter;
 };
+
+export type StreamerAlertEvent = {
+  id: string;
+  eventType: 'live_started' | 'live_ended' | 'title_changed' | 'category_changed';
+  previousValue: string | null;
+  newValue: string | null;
+  occurredAt: number;
+  broadcastTitle: string;
+  category: string | null;
+};

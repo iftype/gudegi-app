@@ -1,4 +1,5 @@
 import { SymbolView } from 'expo-symbols';
+import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Brand } from '@/components/brand';
@@ -14,9 +15,9 @@ export function ScreenHeader({ onRefresh }: { onRefresh?: () => void }) {
             <SymbolView name={{ ios: 'arrow.clockwise', android: 'refresh' }} size={15} tintColor={palette.textSecondary} />
           </Pressable>
         )}
-        <Pressable accessibilityLabel="사용방법" style={styles.guideButton}>
-          <SymbolView name={{ ios: 'questionmark.circle', android: 'help' }} size={13} tintColor={palette.textSecondary} />
-          <Text style={styles.guideText}>사용방법</Text>
+        <Pressable accessibilityLabel="제안하기" onPress={() => router.navigate('/suggestion')} style={styles.guideButton}>
+          <SymbolView name={{ ios: 'lightbulb', android: 'lightbulb' }} size={13} tintColor={palette.textSecondary} />
+          <Text style={styles.guideText}>제안</Text>
         </Pressable>
       </View>
     </View>

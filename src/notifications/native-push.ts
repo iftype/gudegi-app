@@ -10,7 +10,11 @@ const REAL_CHANNEL_ID = /^[a-f0-9]{32}$/;
 
 export type NativePlatform = 'ios' | 'android';
 
-async function installationId() {
+export async function hasNativePushSubscription() {
+  return Boolean(await AsyncStorage.getItem(SUBSCRIPTION_ID_KEY));
+}
+
+export async function getInstallationId() {
   const stored = await AsyncStorage.getItem(INSTALLATION_ID_KEY);
   if (stored) return stored;
   const created = Crypto.randomUUID();
@@ -39,7 +43,7 @@ export async function connectNativePush(
   const result = await apiRequest<{ data: { id: string } }>('/push/native-subscriptions', {
     method: 'POST',
     body: JSON.stringify({
-      installationId: await installationId(),
+      installationId: await getInstallationId(),
       expoPushToken,
       platform,
     }),
@@ -61,6 +65,22 @@ export async function syncNativePushPreferences(preferences: AlertPreference[]) 
     }
     throw error;
   }
+}
+
+export async function syncAppPreferences(preferences: AlertPreference[]) {
+  const id = await getInstallationId();
+  await apiRequest(`/app/installations/${id}/preferences`, {
+    method: 'PUT',
+    body: JSON.stringify({ channels: preferences.filter((item) => REAL_CHANNEL_ID.test(item.channelId)) }),
+  });
+}
+
+export async function loadAppPreferences() {
+  const id = await getInstallationId();
+  const result = await apiRequest<{
+    data: { preferences: AlertPreference[]; updatedAt: number };
+  }>(`/app/installations/${id}/preferences`);
+  return result.data.preferences;
 }
 
 export async function sendNativePushTest() {

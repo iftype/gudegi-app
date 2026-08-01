@@ -32,20 +32,35 @@ export default function RootLayout() {
               options={{
                 headerShown: false,
                 presentation: 'formSheet',
-                sheetAllowedDetents: [0.72, 1],
+                sheetAllowedDetents: [0.82],
                 sheetInitialDetentIndex: 0,
+                sheetExpandsWhenScrolledToEdge: false,
                 sheetGrabberVisible: true,
                 sheetCornerRadius: 24,
                 contentStyle: { backgroundColor: palette.surface },
               }}
             />
             <Stack.Screen
-              name="category-filter"
+              name="alert-log"
               options={{
                 headerShown: false,
                 presentation: 'formSheet',
-                sheetAllowedDetents: [0.62, 0.92],
-                sheetInitialDetentIndex: 1,
+                sheetAllowedDetents: [0.72],
+                sheetInitialDetentIndex: 0,
+                sheetExpandsWhenScrolledToEdge: false,
+                sheetGrabberVisible: true,
+                sheetCornerRadius: 24,
+                contentStyle: { backgroundColor: palette.surface },
+              }}
+            />
+            <Stack.Screen
+              name="suggestion"
+              options={{
+                headerShown: false,
+                presentation: 'formSheet',
+                sheetAllowedDetents: [0.72],
+                sheetInitialDetentIndex: 0,
+                sheetExpandsWhenScrolledToEdge: false,
                 sheetGrabberVisible: true,
                 sheetCornerRadius: 24,
                 contentStyle: { backgroundColor: palette.surface },
