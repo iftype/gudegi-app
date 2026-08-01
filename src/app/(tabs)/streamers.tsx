@@ -22,7 +22,7 @@ export default function StreamersScreen() {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <ScreenHeader onRefresh={() => void store.refresh()} />
+      <ScreenHeader onRefresh={() => void store.refresh()} serverUnavailable={store.serverState === 'unavailable'} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.intro}>
           <Text style={styles.eyebrow}>STREAMERS</Text>
@@ -82,7 +82,7 @@ export default function StreamersScreen() {
                     accessibilityLabel={`${streamer.channelName} 알림 기록`}
                     onPress={() => router.navigate({ pathname: '/alert-log', params: { channelId: streamer.channelId } })}
                     style={styles.logButton}>
-                    <SymbolView name={{ ios: 'doc.text', android: 'description' }} size={14} tintColor={palette.textSecondary} />
+                    <Text style={styles.logText}>LOG</Text>
                   </Pressable>
                   <Pressable
                     accessibilityLabel={`${streamer.channelName} ${added ? '알림 삭제' : '알림 추가'}`}
@@ -162,6 +162,7 @@ const styles = StyleSheet.create({
   category: { color: palette.textSecondary, fontSize: 10 },
   rowActions: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   logButton: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
+  logText: { color: palette.textSecondary, fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
   addButton: { height: 34, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
   addedButton: { backgroundColor: palette.surfaceSelected },
   addText: { color: palette.text, fontSize: 10, fontWeight: '800' },

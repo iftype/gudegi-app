@@ -89,7 +89,7 @@ export default function AlertsScreen() {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <ScreenHeader onRefresh={() => void store.refresh()} />
+      <ScreenHeader onRefresh={() => void store.refresh()} serverUnavailable={store.serverState === 'unavailable'} />
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={store.loading} onRefresh={store.refresh} tintColor={palette.accent} />}>
@@ -109,12 +109,6 @@ export default function AlertsScreen() {
           </View>
           <Text style={styles.description}>이 기기에 저장한 {enabledCount}명의 맞춤 알림을 관리합니다.</Text>
         </View>
-
-        {store.usingDemoData && (
-          <View style={styles.demoNotice}>
-            <Text style={styles.demoNoticeText}>서버 연결 전이라 미리보기 데이터를 표시하고 있습니다.</Text>
-          </View>
-        )}
 
         <View style={styles.management}>
           <Pressable disabled={importing} onPress={() => void importFollows()} style={({ pressed }) => [styles.managementButton, pressed && styles.pressed]}>
@@ -182,6 +176,21 @@ export default function AlertsScreen() {
           })}
           {!visible.length && <Text style={styles.empty}>알림 목록이 비어 있습니다.</Text>}
         </View>
+
+        <View style={styles.bottomActions}>
+          <Pressable
+            onPress={() => router.navigate('/streamers')}
+            style={({ pressed }) => [styles.bottomAction, pressed && styles.pressed]}>
+            <SymbolView name={{ ios: 'plus', android: 'add' }} size={16} tintColor={palette.textSecondary} />
+            <Text style={styles.bottomActionText}>알림 목록에 추가</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.navigate('/suggestion')}
+            style={({ pressed }) => [styles.bottomAction, styles.bottomActionStrong, pressed && styles.pressed]}>
+            <SymbolView name={{ ios: 'paperplane', android: 'send' }} size={16} tintColor={palette.text} />
+            <Text style={styles.bottomActionText}>스트리머 제안</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -210,8 +219,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
   },
   pushBannerText: { color: palette.accentText, fontSize: 13, fontWeight: '900' },
-  demoNotice: { marginBottom: 9, padding: 10, backgroundColor: '#30291A', borderRadius: radius.control },
-  demoNoticeText: { color: '#E5C98B', fontSize: 10, lineHeight: 15 },
   management: { flexDirection: 'row', gap: 8, marginBottom: 9 },
   managementButton: { flex: 1, minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: palette.surface, borderRadius: radius.control },
   managementText: { color: palette.text, fontSize: 10, fontWeight: '800' },
@@ -248,5 +255,9 @@ const styles = StyleSheet.create({
   allSwitch: { alignSelf: 'center', transform: [{ scale: 0.82 }] },
   list: { overflow: 'hidden', backgroundColor: palette.surface, borderRadius: radius.card },
   empty: { padding: 28, color: palette.textSecondary, textAlign: 'center', fontSize: 12 },
+  bottomActions: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  bottomAction: { flex: 1, minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: palette.surface, borderRadius: radius.card },
+  bottomActionStrong: { backgroundColor: palette.surfaceRaised },
+  bottomActionText: { color: palette.text, fontSize: 11, fontWeight: '800' },
   pressed: { opacity: 0.72 },
 });

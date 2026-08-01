@@ -1,14 +1,32 @@
 import { SymbolView } from 'expo-symbols';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/screen-header';
 import { palette, radius } from '@/constants/theme';
 import { useAlertStore } from '@/features/alerts/alert-store';
 
+function notificationTimeLabel(timestamp: number) {
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(timestamp));
+}
+
 export default function SettingsScreen() {
   const store = useAlertStore();
   const permission = store.notificationState;
+
+  function clearNotificationLogs() {
+    if (!store.receivedNotificationLogs.length) return;
+    Alert.alert('받은 알림 비우기', '이 기기에 저장된 알림 기록을 모두 지울까요?', [
+      { text: '취소', style: 'cancel' },
+      { text: '비우기', style: 'destructive', onPress: () => void store.clearReceivedNotificationLogs() },
+    ]);
+  }
 
   const permissionLabel = permission === 'connected'
     ? '기기 알림 연결됨'
@@ -26,12 +44,39 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <ScreenHeader />
+      <ScreenHeader serverUnavailable={store.serverState === 'unavailable'} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.intro}>
           <Text style={styles.eyebrow}>SETTINGS</Text>
           <Text style={styles.title}>설정</Text>
           <Text style={styles.description}>기기 알림과 개인화 저장 상태를 관리합니다.</Text>
+        </View>
+
+        <View style={styles.logCard}>
+          <View style={styles.logHeader}>
+            <View style={styles.logTitleWrap}>
+              <SymbolView name={{ ios: 'message', android: 'chat_bubble_outline' }} size={17} tintColor={palette.text} />
+              <Text style={styles.cardTitle}>받은 알림 로그</Text>
+            </View>
+            <Pressable accessibilityLabel="받은 알림 비우기" onPress={clearNotificationLogs} style={styles.clearButton}>
+              <SymbolView name={{ ios: 'trash', android: 'delete' }} size={13} tintColor={palette.textMuted} />
+              <Text style={styles.clearButtonText}>비우기</Text>
+            </Pressable>
+          </View>
+          <View style={styles.logList}>
+            {store.receivedNotificationLogs.map((log) => (
+              <View key={log.id} style={styles.logRow}>
+                <Text style={styles.logDate}>{notificationTimeLabel(log.receivedAt)}</Text>
+                <View style={styles.logBody}>
+                  <Text numberOfLines={2} style={styles.logTitle}>{log.title}</Text>
+                  {!!log.body && <Text numberOfLines={2} style={styles.logMessage}>{log.body}</Text>}
+                </View>
+              </View>
+            ))}
+            {!store.receivedNotificationLogs.length && (
+              <Text style={styles.emptyLog}>이 기기에서 받은 알림이 아직 없습니다.</Text>
+            )}
+          </View>
         </View>
 
         <View style={styles.card}>
@@ -74,7 +119,14 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>앱 정보</Text>
           <Text style={styles.cardDescription}>구데기 1.0.0 · Expo SDK 57</Text>
-          <Text style={styles.legalText}>로그인 없이 기기 식별자로 알림 조건을 저장합니다. 개인정보처리방침은 스토어 제출 전에 연결합니다.</Text>
+          <Text style={styles.legalText}>계정 가입 없이 설치 식별자·푸시 토큰·알림 설정을 저장합니다.</Text>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => void WebBrowser.openBrowserAsync('https://gudegi.vercel.app/privacy')}
+            style={({ pressed }) => [styles.policyRow, pressed && styles.pressed]}>
+            <Text style={styles.policyText}>개인정보 처리방침</Text>
+            <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right' }} size={12} tintColor={palette.textMuted} />
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -105,4 +157,19 @@ const styles = StyleSheet.create({
   statusOk: { color: palette.accent },
   separator: { height: StyleSheet.hairlineWidth, backgroundColor: palette.border },
   legalText: { color: palette.textMuted, fontSize: 10, lineHeight: 15 },
+  logCard: { overflow: 'hidden', backgroundColor: palette.surface, borderRadius: radius.card },
+  logHeader: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingHorizontal: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
+  logTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  clearButton: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 7 },
+  clearButtonText: { color: palette.textMuted, fontSize: 10, fontWeight: '700' },
+  logList: {},
+  logRow: { minHeight: 72, flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
+  logDate: { width: 72, color: palette.textMuted, fontSize: 9, fontWeight: '700', lineHeight: 14 },
+  logBody: { flex: 1, minWidth: 0, gap: 4 },
+  logTitle: { color: palette.text, fontSize: 12, fontWeight: '800', lineHeight: 17 },
+  logMessage: { color: palette.textSecondary, fontSize: 10, lineHeight: 15 },
+  emptyLog: { padding: 24, color: palette.textMuted, textAlign: 'center', fontSize: 10 },
+  policyRow: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2, paddingHorizontal: 11, backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
+  policyText: { color: palette.text, fontSize: 11, fontWeight: '800' },
+  pressed: { opacity: 0.72 },
 });

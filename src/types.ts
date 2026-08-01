@@ -50,3 +50,11 @@ export type StreamerAlertEvent = {
   broadcastTitle: string;
   category: string | null;
 };
+
+export type ReceivedNotificationLog = {
+  id: string;
+  title: string;
+  body: string;
+  receivedAt: number;
+  channelId: string | null;
+};

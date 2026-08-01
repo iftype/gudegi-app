@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
@@ -14,12 +15,20 @@ import {
   syncNativePushPreferences,
 } from '@/notifications/native-push';
 import { registerForNotifications } from '@/notifications/register';
-import type { AlertPreference, AlertRules, CategoryFilter, LiveCategory, Streamer } from '@/types';
+import {
+  clearReceivedNotificationLogs,
+  loadReceivedNotificationLogs,
+  mergeReceivedNotificationLogs,
+  notificationToLog,
+  saveReceivedNotificationLogs,
+} from '@/notifications/received-notification-log';
+import type { AlertPreference, AlertRules, CategoryFilter, LiveCategory, ReceivedNotificationLog, Streamer } from '@/types';
 
 const STORAGE_KEY = 'gudegi-native-alert-preferences-v1';
 const CATEGORY_CACHE_KEY = 'gudegi-native-category-catalog-v1';
 
 export type PermissionState = 'idle' | 'working' | 'connected' | 'permission_only' | 'denied' | 'device_required' | 'failed';
+export type ServerState = 'connecting' | 'connected' | 'unavailable';
 
 type AlertStore = {
   streamers: Streamer[];
@@ -27,6 +36,8 @@ type AlertStore = {
   preferences: AlertPreference[];
   loading: boolean;
   usingDemoData: boolean;
+  serverState: ServerState;
+  receivedNotificationLogs: ReceivedNotificationLog[];
   refresh: () => Promise<void>;
   searchCategories: (query: string) => Promise<void>;
   toggleEnabled: (channelId: string) => void;
@@ -43,6 +54,7 @@ type AlertStore = {
   notificationState: PermissionState;
   connectNotifications: () => Promise<void>;
   testNotifications: () => Promise<void>;
+  clearReceivedNotificationLogs: () => Promise<void>;
 };
 
 const AlertStoreContext = createContext<AlertStore | null>(null);
@@ -86,6 +98,8 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [usingDemoData, setUsingDemoData] = useState(true);
+  const [serverState, setServerState] = useState<ServerState>('connecting');
+  const [receivedNotificationLogs, setReceivedNotificationLogs] = useState<ReceivedNotificationLog[]>([]);
   const [notificationState, setNotificationState] = useState<PermissionState>('idle');
   const searchedCategoryQueries = useRef(new Set<string>());
 
@@ -95,6 +109,23 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
         if (connected) setNotificationState('connected');
       })
       .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    void loadReceivedNotificationLogs().then(setReceivedNotificationLogs);
+    const remember = (notification: Notifications.Notification) => {
+      setReceivedNotificationLogs((current) => {
+        const next = mergeReceivedNotificationLogs(current, [notificationToLog(notification)]);
+        void saveReceivedNotificationLogs(next);
+        return next;
+      });
+    };
+    const received = Notifications.addNotificationReceivedListener(remember);
+    const responded = Notifications.addNotificationResponseReceivedListener((response) => remember(response.notification));
+    return () => {
+      received.remove();
+      responded.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -162,8 +193,10 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
         ? streamerResult.data.slice(0, 2).map((streamer) => defaultPreference(streamer.channelId))
         : current);
       setUsingDemoData(false);
+      setServerState('connected');
     } catch {
       setUsingDemoData(true);
+      setServerState('unavailable');
     } finally {
       setLoading(false);
     }
@@ -219,6 +252,8 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
     preferences,
     loading,
     usingDemoData,
+    serverState,
+    receivedNotificationLogs,
     refresh,
     searchCategories,
     toggleEnabled(channelId) {
@@ -288,7 +323,11 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
     notificationState,
     connectNotifications,
     testNotifications,
-  }), [categories, connectNotifications, loading, notificationState, preferences, refresh, searchCategories, streamers, testNotifications, update, usingDemoData]);
+    async clearReceivedNotificationLogs() {
+      setReceivedNotificationLogs([]);
+      await clearReceivedNotificationLogs();
+    },
+  }), [categories, connectNotifications, loading, notificationState, preferences, receivedNotificationLogs, refresh, searchCategories, serverState, streamers, testNotifications, update, usingDemoData]);
 
   return <AlertStoreContext.Provider value={value}>{children}</AlertStoreContext.Provider>;
 }

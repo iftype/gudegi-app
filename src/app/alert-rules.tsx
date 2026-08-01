@@ -154,14 +154,40 @@ export default function AlertRulesSheet() {
                     : '모든 카테고리 변경을 알려드려요.'
                   : choice.description;
               const toggle = () => setRules((current) => ({ ...current, [choice.key]: !current[choice.key] }));
+              if (!configurable) {
+                return (
+                  <Pressable
+                    key={choice.key}
+                    accessibilityLabel={`${choice.label} ${selected ? '끄기' : '켜기'}`}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: selected }}
+                    onPress={toggle}
+                    style={({ pressed }) => [styles.choice, selected && styles.choiceSelected, pressed && styles.pressed]}>
+                    <View style={styles.choiceBody}>
+                      <View style={[styles.choiceIcon, selected && styles.choiceIconSelected]}>
+                        <SymbolView name={icon} size={16} tintColor={selected ? palette.accent : palette.textSecondary} />
+                      </View>
+                      <View style={styles.choiceText}>
+                        <Text style={styles.choiceTitle}>{choice.label}</Text>
+                        <Text style={styles.choiceDescription}>{description}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.choiceDivider} />
+                    <View style={styles.checkButton}>
+                      <View style={[styles.check, selected && styles.checkSelected]}>
+                        {selected && <SymbolView name={{ ios: 'checkmark', android: 'check' }} size={14} tintColor={palette.accentText} />}
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              }
               return (
                 <View key={choice.key} style={styles.splitChoice}>
                   <Pressable
-                    accessibilityLabel={configurable ? `${choice.label} 설정` : `${choice.label} ${selected ? '끄기' : '켜기'}`}
+                    accessibilityLabel={`${choice.label} 설정`}
                     onPress={() => {
                       if (choice.key === 'titleChanged') setActivePane('keywords');
-                      else if (choice.key === 'categoryChanged') setActivePane('categories');
-                      else toggle();
+                      else setActivePane('categories');
                     }}
                     style={({ pressed }) => [styles.choiceSettings, selected && styles.choiceSelected, pressed && styles.pressed]}>
                     <View style={[styles.choiceIcon, selected && styles.choiceIconSelected]}>
@@ -171,9 +197,7 @@ export default function AlertRulesSheet() {
                       <Text style={styles.choiceTitle}>{choice.label}</Text>
                       <Text style={styles.choiceDescription}>{description}</Text>
                     </View>
-                    {configurable && (
-                      <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right' }} size={13} tintColor={palette.textMuted} />
-                    )}
+                    <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right' }} size={13} tintColor={palette.textMuted} />
                   </Pressable>
                   <Pressable
                     accessibilityLabel={`${choice.label} ${selected ? '끄기' : '켜기'}`}
