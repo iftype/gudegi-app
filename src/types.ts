@@ -58,3 +58,9 @@ export type ReceivedNotificationLog = {
   receivedAt: number;
   channelId: string | null;
 };
+
+export type FollowedChannel = {
+  channelId: string;
+  channelName: string;
+  channelImageUrl: string | null;
+};

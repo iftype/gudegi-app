@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-import type { AlertPreference, LiveCategory, Streamer, StreamerAlertEvent } from '@/types';
+import type { AlertPreference, FollowedChannel, LiveCategory, Streamer, StreamerAlertEvent } from '@/types';
 
 const fallbackHost = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
 export const apiBaseUrl = (
@@ -44,6 +44,12 @@ export const api = {
   }>('/auth/chzzk/callback', {
     method: 'POST',
     body: JSON.stringify({ code, state }),
+  }),
+  requestFollowedStreamers: (channels: FollowedChannel[], anonymousId: string) => apiRequest<{
+    data: { supported: string[]; requested: string[] };
+  }>('/streamer-requests/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ channels, anonymousId }),
   }),
   feedback: (payload: {
     category: 'idea' | 'bug' | 'usability' | 'streamer_request';

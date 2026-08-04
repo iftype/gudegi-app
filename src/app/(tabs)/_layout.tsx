@@ -9,8 +9,8 @@ export default function TabsLayout() {
       iconColor={{ default: palette.textMuted, selected: palette.accent }}
       indicatorColor={palette.surfaceRaised}
       labelStyle={{
-        default: { color: palette.textMuted },
-        selected: { color: palette.accent },
+        default: { color: palette.textMuted, fontSize: 11, fontWeight: '700' },
+        selected: { color: palette.accent, fontSize: 11, fontWeight: '800' },
       }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>알림 관리</NativeTabs.Trigger.Label>

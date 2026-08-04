@@ -63,6 +63,9 @@ export default function AlertRulesSheet() {
     if (!normalized) return [];
     return store.categories.filter((category) => normalizedSearchText(category.categoryValue).includes(normalized)).slice(0, 30);
   }, [categoryQuery, store.categories]);
+  const normalizedKeyword = keyword.normalize('NFKC').trim().replace(/\s+/g, ' ');
+  const canAddKeyword = normalizedKeyword.length >= 2 && rules.keywords.length < 10;
+  const selectionDisabled = activePane === 'keywords' && rules.keywords.length === 0;
 
   useEffect(() => {
     if (activePane !== 'categories' || !categoryQuery.trim()) return;
@@ -109,16 +112,15 @@ export default function AlertRulesSheet() {
       {Platform.OS !== 'ios' && <View style={styles.handle} />}
       <View collapsable={false} style={styles.header}>
         <View>
-          <Text style={styles.eyebrow}>PERSONAL ALERT</Text>
           <Text style={styles.title}>
-            {activePane === 'main' ? (isAll ? '전체 필터' : '알림 조건') : activePane === 'categories' ? '카테고리 선택' : '방제 변경 설정'}
+            {activePane === 'main' ? (isAll ? '조건 전체 적용' : '알림 조건') : activePane === 'categories' ? '카테고리 선택' : '방제 변경 설정'}
           </Text>
           <Text style={styles.subtitle}>{isAll ? '모든 스트리머에 적용' : streamer?.channelName ?? '스트리머'}</Text>
         </View>
         <Pressable
           accessibilityLabel={activePane === 'main' ? '닫기' : '알림 조건으로 돌아가기'}
           onPress={() => activePane === 'main' ? router.back() : setActivePane('main')}
-          style={styles.closeButton}>
+          style={({ pressed }) => [styles.closeButton, pressed && styles.controlPressed]}>
           <SymbolView
             name={activePane === 'main'
               ? { ios: 'xmark', android: 'close' }
@@ -162,7 +164,7 @@ export default function AlertRulesSheet() {
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: selected }}
                     onPress={toggle}
-                    style={({ pressed }) => [styles.choice, selected && styles.choiceSelected, pressed && styles.pressed]}>
+                    style={({ pressed }) => [styles.choice, selected && styles.choiceSelected, pressed && styles.choicePressed]}>
                     <View style={styles.choiceBody}>
                       <View style={[styles.choiceIcon, selected && styles.choiceIconSelected]}>
                         <SymbolView name={icon} size={16} tintColor={selected ? palette.accent : palette.textSecondary} />
@@ -189,7 +191,7 @@ export default function AlertRulesSheet() {
                       if (choice.key === 'titleChanged') setActivePane('keywords');
                       else setActivePane('categories');
                     }}
-                    style={({ pressed }) => [styles.choiceSettings, selected && styles.choiceSelected, pressed && styles.pressed]}>
+                    style={({ pressed }) => [styles.choiceSettings, selected && styles.choiceSelected, pressed && styles.choicePressed]}>
                     <View style={[styles.choiceIcon, selected && styles.choiceIconSelected]}>
                       <SymbolView name={icon} size={16} tintColor={selected ? palette.accent : palette.textSecondary} />
                     </View>
@@ -204,7 +206,7 @@ export default function AlertRulesSheet() {
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: selected }}
                     onPress={toggle}
-                    style={({ pressed }) => [styles.detachedCheckButton, selected && styles.detachedCheckButtonSelected, pressed && styles.pressed]}>
+                    style={({ pressed }) => [styles.detachedCheckButton, selected && styles.detachedCheckButtonSelected, pressed && styles.choicePressed]}>
                     <View style={[styles.check, selected && styles.checkSelected]}>
                       {selected && <SymbolView name={{ ios: 'checkmark', android: 'check' }} size={14} tintColor={palette.accentText} />}
                     </View>
@@ -251,7 +253,10 @@ export default function AlertRulesSheet() {
                     {categoryFilter.categoryKeys.map((key) => {
                       const category = categoryByKey.get(key);
                       return (
-                        <Pressable key={key} onPress={() => category && toggleCategory(category)} style={styles.categoryChip}>
+                        <Pressable
+                          key={key}
+                          onPress={() => category && toggleCategory(category)}
+                          style={({ pressed }) => [styles.categoryChip, pressed && styles.chipPressed]}>
                           <Text numberOfLines={1} style={styles.categoryChipText}>{category?.categoryValue ?? key}</Text>
                           <SymbolView name={{ ios: 'xmark', android: 'close' }} size={9} tintColor="#B8D8C4" />
                         </Pressable>
@@ -268,7 +273,7 @@ export default function AlertRulesSheet() {
                       <Pressable
                         key={category.categoryKey}
                         onPress={() => toggleCategory(category)}
-                        style={({ pressed }) => [styles.resultRow, pressed && styles.pressed]}>
+                        style={({ pressed }) => [styles.resultRow, pressed && styles.rowPressed]}>
                         <View style={styles.resultText}>
                           <Text style={styles.resultTitle}>{category.categoryValue}</Text>
                           <Text style={styles.resultMeta}>
@@ -320,10 +325,18 @@ export default function AlertRulesSheet() {
               />
               <Pressable
                 accessibilityLabel="키워드 추가"
-                disabled={keyword.trim().length < 2 || rules.keywords.length >= 10}
+                disabled={!canAddKeyword}
                 onPress={addKeyword}
-                style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
-                <SymbolView name={{ ios: 'plus', android: 'add' }} size={17} tintColor={palette.accentText} />
+                style={({ pressed }) => [
+                  styles.addButton,
+                  !canAddKeyword && styles.disabledButton,
+                  pressed && canAddKeyword && styles.actionPressed,
+                ]}>
+                <SymbolView
+                  name={{ ios: 'plus', android: 'add' }}
+                  size={17}
+                  tintColor={canAddKeyword ? palette.accentText : palette.textMuted}
+                />
               </Pressable>
             </View>
             <View style={styles.keywordList}>
@@ -334,7 +347,7 @@ export default function AlertRulesSheet() {
                     ...current,
                     keywords: current.keywords.filter((keywordItem) => keywordItem !== item),
                   }))}
-                  style={styles.keywordChip}>
+                  style={({ pressed }) => [styles.keywordChip, pressed && styles.chipPressed]}>
                   <Text style={styles.keywordChipText}>#{item}</Text>
                   <SymbolView name={{ ios: 'xmark', android: 'close' }} size={9} tintColor="#B8D8C4" />
                 </Pressable>
@@ -345,9 +358,16 @@ export default function AlertRulesSheet() {
         )}
         <View style={styles.footer}>
           <Pressable
+            disabled={selectionDisabled}
             onPress={() => activePane === 'main' ? apply() : setActivePane('main')}
-            style={({ pressed }) => [styles.applyButton, pressed && styles.applyPressed]}>
-            <Text style={styles.applyText}>{activePane === 'main' ? '알림 조건 저장' : '선택 완료'}</Text>
+            style={({ pressed }) => [
+              styles.applyButton,
+              selectionDisabled && styles.disabledButton,
+              pressed && !selectionDisabled && styles.applyPressed,
+            ]}>
+            <Text style={[styles.applyText, selectionDisabled && styles.disabledButtonText]}>
+              {activePane === 'main' ? '알림 조건 저장' : '선택 완료'}
+            </Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -359,9 +379,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.surface },
   handle: { alignSelf: 'center', width: 38, height: 4, marginTop: 9, backgroundColor: palette.borderStrong, borderRadius: radius.pill },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12 },
-  eyebrow: { color: palette.accent, fontSize: 10, fontWeight: '700', letterSpacing: 1.5 },
-  title: { marginTop: 5, color: palette.text, fontSize: 22, fontWeight: '900', letterSpacing: -0.8 },
-  subtitle: { marginTop: 2, color: palette.textSecondary, fontSize: 10 },
+  title: { color: palette.text, fontSize: 26, fontWeight: '900', letterSpacing: -1 },
+  subtitle: { marginTop: 2, color: palette.textSecondary, fontSize: 12 },
   closeButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
   content: { flexGrow: 1, paddingHorizontal: 18, paddingBottom: 72 },
   choiceList: { gap: 8 },
@@ -371,51 +390,58 @@ const styles = StyleSheet.create({
   detachedCheckButtonSelected: { backgroundColor: palette.surfaceRaised, borderColor: palette.borderStrong },
   choice: { minHeight: 68, flexDirection: 'row', alignItems: 'stretch', backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.card, overflow: 'hidden' },
   choiceSelected: { backgroundColor: palette.surfaceRaised, borderColor: palette.borderStrong },
+  choicePressed: { backgroundColor: '#3A3C40', borderColor: '#4B4E53', transform: [{ scale: 0.995 }] },
   choiceBody: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 11 },
   choiceIcon: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
   choiceIconSelected: { backgroundColor: palette.surfaceSelected },
   choiceText: { flex: 1, gap: 3 },
-  choiceTitle: { color: palette.text, fontSize: 13, fontWeight: '800' },
-  choiceDescription: { color: palette.textSecondary, fontSize: 10 },
+  choiceTitle: { color: palette.text, fontSize: 15, fontWeight: '800' },
+  choiceDescription: { color: palette.textSecondary, fontSize: 12 },
   choiceDivider: { width: StyleSheet.hairlineWidth, marginVertical: 10, backgroundColor: palette.borderStrong },
   checkButton: { width: 52, alignItems: 'center', justifyContent: 'center' },
   check: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.background, borderWidth: 1, borderColor: palette.borderStrong, borderRadius: 8 },
   checkSelected: { backgroundColor: palette.accent, borderColor: palette.accent },
   navigationCard: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 11, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.card },
   editorSection: { gap: 11 },
-  sectionDescription: { color: palette.textSecondary, fontSize: 10, lineHeight: 15 },
+  sectionDescription: { color: palette.textSecondary, fontSize: 12, lineHeight: 17 },
   search: { height: 46, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 11, backgroundColor: palette.background, borderRadius: radius.control },
   searchInput: { flex: 1, color: palette.text, fontSize: 15 },
   selectedBlock: { gap: 8, padding: 10, backgroundColor: palette.surfaceRaised, borderRadius: radius.card },
   selectedHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  selectedTitle: { color: palette.text, fontSize: 10, fontWeight: '800' },
-  clearText: { color: palette.textSecondary, fontSize: 9, fontWeight: '700' },
+  selectedTitle: { color: palette.text, fontSize: 12, fontWeight: '800' },
+  clearText: { color: palette.textSecondary, fontSize: 11, fontWeight: '700' },
   selectedCategories: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   categoryChip: { maxWidth: '100%', minHeight: 29, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, backgroundColor: '#202B25', borderWidth: 1, borderColor: '#385044', borderRadius: radius.pill },
-  categoryChipText: { flexShrink: 1, color: '#B8D8C4', fontSize: 10, fontWeight: '700' },
+  categoryChipText: { flexShrink: 1, color: '#B8D8C4', fontSize: 11, fontWeight: '700' },
   searchResults: { overflow: 'hidden', borderWidth: 1, borderColor: palette.border, borderRadius: radius.card },
   resultRow: { minHeight: 55, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 11, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
+  rowPressed: { backgroundColor: palette.surfaceRaised },
   resultText: { flex: 1, minWidth: 0, gap: 3 },
-  resultTitle: { color: palette.text, fontSize: 12, fontWeight: '800' },
-  resultMeta: { color: palette.textSecondary, fontSize: 9 },
+  resultTitle: { color: palette.text, fontSize: 14, fontWeight: '800' },
+  resultMeta: { color: palette.textSecondary, fontSize: 11 },
   addResult: { width: 27, height: 27, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: 8 },
   addResultSelected: { backgroundColor: palette.accent },
-  emptyText: { padding: 18, color: palette.textMuted, textAlign: 'center', fontSize: 10, lineHeight: 15 },
+  emptyText: { padding: 18, color: palette.textMuted, textAlign: 'center', fontSize: 12, lineHeight: 17 },
   keywordHeader: { flexDirection: 'row', alignItems: 'center', gap: 9, padding: 12, backgroundColor: palette.surfaceRaised, borderRadius: radius.card },
   keywordIcon: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceSelected, borderRadius: radius.control },
   keywordTitleWrap: { flex: 1, gap: 2 },
-  keywordTitle: { color: palette.text, fontSize: 13, fontWeight: '800' },
-  keywordDescription: { color: palette.textSecondary, fontSize: 9 },
-  keywordCount: { color: palette.accent, fontSize: 10, fontWeight: '800' },
+  keywordTitle: { color: palette.text, fontSize: 15, fontWeight: '800' },
+  keywordDescription: { color: palette.textSecondary, fontSize: 11 },
+  keywordCount: { color: palette.accent, fontSize: 12, fontWeight: '800' },
   keywordForm: { flexDirection: 'row', gap: 7 },
   keywordInput: { flex: 1, height: 46, paddingHorizontal: 11, color: palette.text, backgroundColor: palette.background, borderRadius: radius.control, fontSize: 16 },
   addButton: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.accent, borderRadius: radius.control },
   keywordList: { minHeight: 45, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
   keywordChip: { minHeight: 29, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, backgroundColor: '#202B25', borderWidth: 1, borderColor: '#385044', borderRadius: radius.pill },
-  keywordChipText: { color: '#B8D8C4', fontSize: 10, fontWeight: '700' },
+  keywordChipText: { color: '#B8D8C4', fontSize: 11, fontWeight: '700' },
+  chipPressed: { backgroundColor: palette.surfaceSelected, borderColor: '#4B4E53' },
   footer: { marginTop: 18, paddingBottom: Platform.OS === 'ios' ? 12 : 16 },
   applyButton: { minHeight: 50, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.accent, borderRadius: radius.control },
   applyPressed: { backgroundColor: '#00D98B' },
-  applyText: { color: palette.accentText, fontSize: 13, fontWeight: '900' },
+  actionPressed: { backgroundColor: '#00D98B' },
+  disabledButton: { backgroundColor: palette.surfaceRaised },
+  disabledButtonText: { color: palette.textMuted },
+  controlPressed: { backgroundColor: palette.surfaceSelected },
+  applyText: { color: palette.accentText, fontSize: 15, fontWeight: '900' },
   pressed: { opacity: 0.72 },
 });

@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surface,
     borderRadius: radius.control,
   },
-  guideText: { color: palette.textSecondary, fontSize: 10, fontWeight: '700' },
+  guideText: { color: palette.textSecondary, fontSize: 11, fontWeight: '700' },
   serverBanner: { minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 14, backgroundColor: '#30291A', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#5A4727' },
-  serverBannerText: { flexShrink: 1, color: '#F1CD85', fontSize: 10, fontWeight: '700', lineHeight: 14 },
+  serverBannerText: { flexShrink: 1, color: '#F1CD85', fontSize: 11, fontWeight: '700', lineHeight: 15 },
 });

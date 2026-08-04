@@ -37,6 +37,65 @@ function dayLabel(timestamp: number) {
   }).format(new Date(timestamp));
 }
 
+function shortDateTimeLabel(timestamp: number) {
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(timestamp));
+}
+
+type BroadcastSession = {
+  key: string;
+  items: StreamerAlertEvent[];
+  startedAt: number;
+  endedAt: number | null;
+};
+
+function groupByBroadcast(events: StreamerAlertEvent[]): BroadcastSession[] {
+  const ascending = [...events].sort((a, b) => a.occurredAt - b.occurredAt);
+  const sessions: BroadcastSession[] = [];
+  let active: BroadcastSession | null = null;
+
+  for (const event of ascending) {
+    if (event.eventType === 'live_started') {
+      if (active) sessions.push(active);
+      active = { key: `broadcast-${event.id}`, items: [event], startedAt: event.occurredAt, endedAt: null };
+      continue;
+    }
+
+    if (!active) {
+      sessions.push({
+        key: `event-${event.id}`,
+        items: [event],
+        startedAt: event.occurredAt,
+        endedAt: event.eventType === 'live_ended' ? event.occurredAt : null,
+      });
+      continue;
+    }
+
+    active.items.push(event);
+    if (event.eventType === 'live_ended') {
+      active.endedAt = event.occurredAt;
+      sessions.push(active);
+      active = null;
+    }
+  }
+
+  if (active) sessions.push(active);
+  return sessions.sort((a, b) => b.items[b.items.length - 1]!.occurredAt - a.items[a.items.length - 1]!.occurredAt);
+}
+
+function sessionLabel(session: BroadcastSession) {
+  const start = `${dayLabel(session.startedAt)} · ${timeLabel(session.startedAt)}`;
+  if (!session.endedAt) return session.items[0]?.eventType === 'live_started' ? `${start}–방송 중` : start;
+  const end = dayKey(session.startedAt) === dayKey(session.endedAt)
+    ? timeLabel(session.endedAt)
+    : shortDateTimeLabel(session.endedAt);
+  return `${start}–${end}`;
+}
+
 export default function AlertLogSheet() {
   const { channelId } = useLocalSearchParams<{ channelId?: string }>();
   const store = useAlertStore();
@@ -77,20 +136,12 @@ export default function AlertLogSheet() {
     () => [...events].sort((a, b) => b.occurredAt - a.occurredAt),
     [events],
   );
-  const eventGroups = useMemo(() => {
-    const grouped = new Map<string, StreamerAlertEvent[]>();
-    for (const event of sortedEvents) {
-      const key = dayKey(event.occurredAt);
-      grouped.set(key, [...(grouped.get(key) ?? []), event]);
-    }
-    return [...grouped.entries()].map(([key, items]) => ({ key, items }));
-  }, [sortedEvents]);
+  const eventGroups = useMemo(() => groupByBroadcast(events), [events]);
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.eyebrow}>ALERT LOG</Text>
           <Text style={styles.title}>알림 기록</Text>
           <Text numberOfLines={1} style={styles.subtitle}>{streamer?.channelName ?? '스트리머'} · 최신순</Text>
         </View>
@@ -101,13 +152,13 @@ export default function AlertLogSheet() {
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={palette.accent} />}>
-        <Text style={styles.description}>서버가 감지한 방송 시작·종료·방제·카테고리 변경 기록입니다.</Text>
+        <Text style={styles.description}>방송 시작부터 종료까지 한 묶음으로 표시합니다.</Text>
         <View style={styles.groups}>
           {eventGroups.map((group) => (
             <View key={group.key} style={styles.dateGroup}>
-              <Text style={styles.dayLabel}>{dayLabel(group.items[0]!.occurredAt)}</Text>
+              <Text style={styles.dayLabel}>{sessionLabel(group)}</Text>
               <View style={styles.list}>
-                {group.items.map((event) => {
+                {[...group.items].sort((a, b) => b.occurredAt - a.occurredAt).map((event) => {
                   const presentation = eventPresentation[event.eventType];
                   return (
                     <View key={event.id} style={styles.row}>
@@ -116,8 +167,17 @@ export default function AlertLogSheet() {
                       </View>
                       <View style={styles.rowBody}>
                         <View style={styles.rowHeading}>
-                          <Text style={styles.eventLabel}>{presentation.label}</Text>
-                          <Text style={styles.date}>{timeLabel(event.occurredAt)}</Text>
+                          <View style={styles.eventHeading}>
+                            <Text style={styles.eventLabel}>{presentation.label}</Text>
+                            {event.eventType === 'live_started' && !!event.category && (
+                              <Text numberOfLines={1} style={styles.startCategory}>{event.category}</Text>
+                            )}
+                          </View>
+                          <Text style={styles.date}>
+                            {dayKey(event.occurredAt) === dayKey(group.startedAt)
+                              ? timeLabel(event.occurredAt)
+                              : shortDateTimeLabel(event.occurredAt)}
+                          </Text>
                         </View>
                         {event.eventType === 'live_started' && (
                           <Text numberOfLines={2} style={styles.value}>{event.newValue ?? event.broadcastTitle}</Text>
@@ -157,27 +217,28 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.surface },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 40, paddingBottom: 14 },
   headerText: { flex: 1, minWidth: 0 },
-  eyebrow: { color: palette.accent, fontSize: 10, fontWeight: '700', letterSpacing: 1.5 },
-  title: { marginTop: 5, color: palette.text, fontSize: 22, fontWeight: '900', letterSpacing: -0.8 },
-  subtitle: { marginTop: 2, color: palette.textSecondary, fontSize: 10 },
+  title: { color: palette.text, fontSize: 26, fontWeight: '900', letterSpacing: -1 },
+  subtitle: { marginTop: 2, color: palette.textSecondary, fontSize: 12 },
   closeButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
   content: { paddingHorizontal: 18, paddingBottom: 88 },
-  description: { marginBottom: 10, color: palette.textSecondary, fontSize: 10, lineHeight: 15 },
+  description: { marginBottom: 10, color: palette.textSecondary, fontSize: 12, lineHeight: 17 },
   groups: { gap: 24 },
   dateGroup: { gap: 9 },
-  dayLabel: { marginLeft: 3, color: palette.textSecondary, fontSize: 10, fontWeight: '800' },
+  dayLabel: { marginLeft: 3, color: palette.textSecondary, fontSize: 12, fontWeight: '800' },
   list: { overflow: 'hidden', backgroundColor: palette.background, borderRadius: radius.card },
   row: { minHeight: 76, flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
   icon: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
   rowBody: { flex: 1, minWidth: 0, gap: 7 },
   rowHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  eventLabel: { color: palette.text, fontSize: 12, fontWeight: '800' },
-  date: { color: palette.textMuted, fontSize: 8 },
-  value: { color: palette.textSecondary, fontSize: 10, lineHeight: 15 },
+  eventHeading: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  eventLabel: { color: palette.text, fontSize: 14, fontWeight: '800' },
+  startCategory: { flexShrink: 1, color: palette.textSecondary, fontSize: 10, fontWeight: '700' },
+  date: { color: palette.textMuted, fontSize: 10 },
+  value: { color: palette.textSecondary, fontSize: 12, lineHeight: 17 },
   changeValues: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  previous: { maxWidth: '40%', color: palette.textMuted, fontSize: 9 },
-  current: { flex: 1, color: palette.textSecondary, fontSize: 10, fontWeight: '700' },
-  empty: { padding: 28, color: palette.textMuted, textAlign: 'center', fontSize: 11 },
+  previous: { maxWidth: '40%', color: palette.textMuted, fontSize: 11 },
+  current: { flex: 1, color: palette.textSecondary, fontSize: 12, fontWeight: '700' },
+  empty: { padding: 28, color: palette.textMuted, textAlign: 'center', fontSize: 13 },
   retry: { padding: 24 },
-  retryText: { color: palette.accent, textAlign: 'center', fontSize: 11, fontWeight: '800' },
+  retryText: { color: palette.accent, textAlign: 'center', fontSize: 13, fontWeight: '800' },
 });

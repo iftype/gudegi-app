@@ -4,15 +4,17 @@
     "slug": "gudegi-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/gudegi-mascot-icon.png",
+    "icon": "./assets/images/gudegi-mascot-face-icon.png",
     "scheme": "gudegi",
     "userInterfaceStyle": "dark",
     "ios": {
-      "icon": "./assets/images/gudegi-mascot-icon.png",
+      "icon": "./assets/images/gudegi-mascot-face-icon.png",
       "bundleIdentifier": "com.iftype.gudegi",
+      "appleTeamId": "LH59GZPLYF",
       "supportsTablet": false,
       "infoPlist": {
-        "NSUserNotificationsUsageDescription": "방송 시작, 방제 변경, 카테고리 및 키워드 알림을 보내기 위해 사용합니다."
+        "NSUserNotificationsUsageDescription": "방송 시작, 방제 변경, 카테고리 및 키워드 알림을 보내기 위해 사용합니다.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -20,7 +22,7 @@
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/gudegi-mascot-icon.png",
+        "foregroundImage": "./assets/images/gudegi-mascot-face-icon.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -36,11 +38,12 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#141517",
-          "image": "./assets/images/gudegi-mascot.png",
+          "image": "./assets/images/gudegi-mascot-face-icon.png",
           "imageWidth": 76
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -49,7 +52,20 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "c4d2317a-6677-4302-b7b9-000f6d59df08"
+        "projectId": "c4d2317a-6677-4302-b7b9-000f6d59df08",
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "bundleIdentifier": "com.iftype.gudegi.notification-service",
+                  "targetName": "GudegiNotificationService",
+                  "entitlements": {}
+                }
+              ]
+            }
+          }
+        }
       }
     },
     "owner": "iftype"

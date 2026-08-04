@@ -47,9 +47,30 @@ export default function SettingsScreen() {
       <ScreenHeader serverUnavailable={store.serverState === 'unavailable'} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.intro}>
-          <Text style={styles.eyebrow}>SETTINGS</Text>
           <Text style={styles.title}>설정</Text>
-          <Text style={styles.description}>기기 알림과 개인화 저장 상태를 관리합니다.</Text>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardIcon}>
+              <SymbolView name={{ ios: 'bell.badge', android: 'notifications_active' }} size={18} tintColor={palette.accent} />
+            </View>
+            <View style={styles.cardTitleWrap}>
+              <Text style={styles.cardTitle}>기기 알림</Text>
+              <Text style={styles.cardDescription}>방송 시작과 변경 알림을 받아보세요.</Text>
+            </View>
+          </View>
+          <Pressable
+            disabled={permission === 'working'}
+            onPress={() => void store.connectNotifications()}
+            style={[styles.primaryButton, permission === 'connected' && styles.connectedButton]}>
+            <Text style={styles.primaryButtonText}>{permissionLabel}</Text>
+          </Pressable>
+          {permission === 'connected' && (
+            <Pressable onPress={() => void store.testNotifications()} style={styles.secondaryButton}>
+              <Text style={styles.secondaryButtonText}>테스트 알림 보내기</Text>
+            </Pressable>
+          )}
         </View>
 
         <View style={styles.logCard}>
@@ -77,29 +98,6 @@ export default function SettingsScreen() {
               <Text style={styles.emptyLog}>이 기기에서 받은 알림이 아직 없습니다.</Text>
             )}
           </View>
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardIcon}>
-              <SymbolView name={{ ios: 'bell.badge', android: 'notifications_active' }} size={18} tintColor={palette.accent} />
-            </View>
-            <View style={styles.cardTitleWrap}>
-              <Text style={styles.cardTitle}>기기 알림</Text>
-              <Text style={styles.cardDescription}>방송 시작과 변경 알림을 받아보세요.</Text>
-            </View>
-          </View>
-          <Pressable
-            disabled={permission === 'working'}
-            onPress={() => void store.connectNotifications()}
-            style={[styles.primaryButton, permission === 'connected' && styles.connectedButton]}>
-            <Text style={styles.primaryButtonText}>{permissionLabel}</Text>
-          </Pressable>
-          {permission === 'connected' && (
-            <Pressable onPress={() => void store.testNotifications()} style={styles.secondaryButton}>
-              <Text style={styles.secondaryButtonText}>테스트 알림 보내기</Text>
-            </Pressable>
-          )}
         </View>
 
         <View style={styles.card}>
@@ -137,39 +135,37 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: palette.background },
   content: { gap: 12, padding: 14, paddingBottom: 112 },
   intro: { marginBottom: 2, paddingHorizontal: 2 },
-  eyebrow: { color: palette.accent, fontSize: 10, fontWeight: '700', letterSpacing: 1.6 },
-  title: { marginTop: 5, color: palette.text, fontSize: 25, fontWeight: '900', letterSpacing: -1.2 },
-  description: { marginTop: 3, color: palette.textSecondary, fontSize: 12 },
+  title: { color: palette.text, fontSize: 30, fontWeight: '900', letterSpacing: -1.3 },
   card: { gap: 13, padding: 14, backgroundColor: palette.surface, borderRadius: radius.card },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   cardIcon: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
   cardTitleWrap: { flex: 1, gap: 3 },
-  cardTitle: { color: palette.text, fontSize: 14, fontWeight: '800' },
-  cardDescription: { color: palette.textSecondary, fontSize: 11, lineHeight: 16 },
+  cardTitle: { color: palette.text, fontSize: 16, fontWeight: '800' },
+  cardDescription: { color: palette.textSecondary, fontSize: 13, lineHeight: 18 },
   primaryButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.accent, borderRadius: radius.control },
   connectedButton: { backgroundColor: palette.surfaceSelected },
-  primaryButtonText: { color: palette.accentText, fontSize: 12, fontWeight: '900' },
+  primaryButtonText: { color: palette.accentText, fontSize: 14, fontWeight: '900' },
   secondaryButton: { minHeight: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: palette.border, borderRadius: radius.control },
-  secondaryButtonText: { color: palette.text, fontSize: 11, fontWeight: '800' },
+  secondaryButtonText: { color: palette.text, fontSize: 13, fontWeight: '800' },
   statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  statusLabel: { color: palette.text, fontSize: 12, fontWeight: '700' },
-  statusValue: { color: palette.textSecondary, fontSize: 11 },
+  statusLabel: { color: palette.text, fontSize: 14, fontWeight: '700' },
+  statusValue: { color: palette.textSecondary, fontSize: 13 },
   statusOk: { color: palette.accent },
   separator: { height: StyleSheet.hairlineWidth, backgroundColor: palette.border },
-  legalText: { color: palette.textMuted, fontSize: 10, lineHeight: 15 },
+  legalText: { color: palette.textMuted, fontSize: 12, lineHeight: 17 },
   logCard: { overflow: 'hidden', backgroundColor: palette.surface, borderRadius: radius.card },
   logHeader: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingHorizontal: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
   logTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   clearButton: { minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 7 },
-  clearButtonText: { color: palette.textMuted, fontSize: 10, fontWeight: '700' },
+  clearButtonText: { color: palette.textMuted, fontSize: 12, fontWeight: '700' },
   logList: {},
   logRow: { minHeight: 72, flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
-  logDate: { width: 72, color: palette.textMuted, fontSize: 9, fontWeight: '700', lineHeight: 14 },
+  logDate: { width: 76, color: palette.textMuted, fontSize: 11, fontWeight: '700', lineHeight: 16 },
   logBody: { flex: 1, minWidth: 0, gap: 4 },
-  logTitle: { color: palette.text, fontSize: 12, fontWeight: '800', lineHeight: 17 },
-  logMessage: { color: palette.textSecondary, fontSize: 10, lineHeight: 15 },
-  emptyLog: { padding: 24, color: palette.textMuted, textAlign: 'center', fontSize: 10 },
+  logTitle: { color: palette.text, fontSize: 14, fontWeight: '800', lineHeight: 19 },
+  logMessage: { color: palette.textSecondary, fontSize: 12, lineHeight: 17 },
+  emptyLog: { padding: 24, color: palette.textMuted, textAlign: 'center', fontSize: 12 },
   policyRow: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2, paddingHorizontal: 11, backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
-  policyText: { color: palette.text, fontSize: 11, fontWeight: '800' },
+  policyText: { color: palette.text, fontSize: 13, fontWeight: '800' },
   pressed: { opacity: 0.72 },
 });

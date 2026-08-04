@@ -10,11 +10,13 @@ export function SymbolButton({
   name,
   label,
   active = false,
+  muted = false,
   onPress,
 }: {
   name: SymbolName;
   label: string;
   active?: boolean;
+  muted?: boolean;
   onPress: () => void;
 }) {
   return (
@@ -24,8 +26,8 @@ export function SymbolButton({
       accessibilityState={{ selected: active }}
       hitSlop={6}
       onPress={onPress}
-      style={({ pressed }) => [styles.button, active && styles.active, pressed && styles.pressed]}>
-      <SymbolView name={name} size={17} tintColor={active ? palette.accent : palette.textSecondary} />
+      style={({ pressed }) => [styles.button, active && !muted && styles.active, muted && styles.muted, pressed && styles.pressed]}>
+      <SymbolView name={name} size={17} tintColor={active && !muted ? palette.accent : palette.textSecondary} />
     </Pressable>
   );
 }
@@ -40,5 +42,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.control,
   },
   active: { backgroundColor: palette.surfaceSelected },
+  muted: { backgroundColor: palette.surfaceRaised },
   pressed: { opacity: 0.72 },
 });

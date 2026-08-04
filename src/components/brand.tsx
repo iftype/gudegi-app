@@ -10,7 +10,7 @@ export function Brand() {
         <Image
           accessibilityLabel="구데기 캐릭터"
           contentFit="cover"
-          source={require('../../assets/images/gudegi-mascot.png')}
+          source={require('../../assets/images/gudegi-mascot-face-icon.png')}
           style={styles.markImage}
         />
       </View>
@@ -34,6 +34,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.control,
   },
   markImage: { width: '100%', height: '100%' },
-  name: { color: palette.text, fontSize: 17, fontWeight: '900', letterSpacing: -0.7 },
-  tagline: { color: palette.textMuted, fontSize: 10, fontWeight: '600' },
+  name: { color: palette.text, fontSize: 18, fontWeight: '900', letterSpacing: -0.7 },
+  tagline: { color: palette.textMuted, fontSize: 11, fontWeight: '600' },
 });

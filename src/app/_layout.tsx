@@ -27,6 +27,7 @@ export default function RootLayout() {
           <StatusBar style="light" />
           <Stack screenOptions={{ contentStyle: { backgroundColor: palette.background } }}>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="follow-import" options={{ headerShown: false }} />
             <Stack.Screen
               name="alert-rules"
               options={{
