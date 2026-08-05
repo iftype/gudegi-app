@@ -60,7 +60,11 @@ export function AlertRow({
         {streamer.isLive && <Text style={styles.liveBadge}>LIVE</Text>}
       </Pressable>
 
-      <View style={styles.main}>
+      <Pressable
+        accessibilityLabel={`${streamer.channelName} 알림 필터 설정`}
+        accessibilityHint="방송 시작, 방제와 카테고리 변경 알림을 설정합니다"
+        onPress={() => openSheet(streamer.channelId)}
+        style={({ pressed }) => [styles.main, pressed && styles.mainPressed]}>
         <View style={styles.identity}>
           <Text numberOfLines={1} style={[styles.name, !streamer.isLive && styles.nameOffline]}>{streamer.channelName}</Text>
           {streamer.isLive && (
@@ -73,21 +77,27 @@ export function AlertRow({
         <Text numberOfLines={1} style={[styles.category, !streamer.isLive && styles.categoryOffline]}>
           {streamer.currentCategory ?? (streamer.isLive ? '카테고리 정보 없음' : '오프라인')}
         </Text>
-      </View>
+      </Pressable>
       <View style={styles.actions}>
         <SymbolButton
           name={{ ios: preference.enabled ? 'bell.fill' : 'bell', android: preference.enabled ? 'notifications' : 'notifications_none' }}
           label={`${streamer.channelName} 알림 받기`}
           active={preference.enabled}
-          muted={!streamer.isLive}
           onPress={onToggle}
         />
-        <SymbolButton
-          name={{ ios: 'checklist', android: 'checklist' }}
-          label={`${streamer.channelName} 알림 조건`}
-          muted={!streamer.isLive}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${streamer.channelName} 알림 필터 설정`}
+          hitSlop={6}
           onPress={() => openSheet(streamer.channelId)}
-        />
+          style={({ pressed }) => [styles.filterButton, pressed && styles.actionPressed]}>
+          <Text style={styles.filterText}>필터</Text>
+          <SymbolView
+            name={{ ios: 'slider.horizontal.3', android: 'tune' }}
+            size={17}
+            tintColor={palette.text}
+          />
+        </Pressable>
         <Pressable
           accessibilityLabel={`${streamer.channelName} 알림 목록에서 삭제`}
           hitSlop={6}
@@ -145,7 +155,8 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '900',
   },
-  main: { flex: 1, minWidth: 0, justifyContent: 'center', gap: 0 },
+  main: { flex: 1, minWidth: 0, minHeight: 44, justifyContent: 'center', gap: 0, borderRadius: radius.control },
+  mainPressed: { backgroundColor: palette.surfaceRaised },
   identity: { minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: { flexShrink: 1, color: palette.text, fontSize: 16, fontWeight: '900', letterSpacing: -0.4 },
   nameOffline: { color: palette.textSecondary },
@@ -153,6 +164,9 @@ const styles = StyleSheet.create({
   elapsedText: { color: palette.textSecondary, fontSize: 11, fontWeight: '700' },
   category: { color: palette.textSecondary, fontSize: 11, lineHeight: 14, fontWeight: '600' },
   categoryOffline: { color: palette.textMuted },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  filterButton: { height: 34, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 8, backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
+  filterText: { color: palette.text, fontSize: 11, fontWeight: '800' },
+  actionPressed: { opacity: 0.72 },
   moreButton: { width: 26, height: 34, alignItems: 'center', justifyContent: 'center' },
 });

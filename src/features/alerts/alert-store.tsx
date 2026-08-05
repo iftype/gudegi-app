@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 
-import { api } from '@/api/client';
+import { api, apiBaseUrl } from '@/api/client';
 import { demoPreferences, demoStreamers } from '@/data/demo';
 import { mergeCategoryCatalog } from '@/data/category-catalog';
 import {
@@ -26,6 +26,8 @@ import type { AlertPreference, AlertRules, CategoryFilter, LiveCategory, Receive
 
 const STORAGE_KEY = 'gudegi-native-alert-preferences-v1';
 const CATEGORY_CACHE_KEY = 'gudegi-native-category-catalog-v1';
+const GLOBAL_DEFAULTS_KEY = 'gudegi-native-global-alert-defaults-v1';
+const PUSH_TEST_COMPLETED_KEY = `gudegi-native-push-test-completed-v2:${apiBaseUrl}`;
 
 export type PermissionState = 'idle' | 'working' | 'connected' | 'permission_only' | 'denied' | 'device_required' | 'failed';
 export type ServerState = 'connecting' | 'connected' | 'unavailable';
@@ -52,12 +54,15 @@ type AlertStore = {
   updateAllRules: (value: AlertRules) => void;
   updateAllCategoryFilter: (value: CategoryFilter) => void;
   notificationState: PermissionState;
+  showNotificationTestPrompt: boolean;
   connectNotifications: () => Promise<void>;
   testNotifications: () => Promise<void>;
   clearReceivedNotificationLogs: () => Promise<void>;
 };
 
 const AlertStoreContext = createContext<AlertStore | null>(null);
+
+type GlobalAlertDefaults = AlertRules & { categoryFilter: CategoryFilter };
 
 function defaultPreference(channelId: string): AlertPreference {
   return {
@@ -68,6 +73,89 @@ function defaultPreference(channelId: string): AlertPreference {
     titleChanged: true,
     keywords: [],
     categoryFilter: { allCategories: true, categoryKeys: [] },
+  };
+}
+
+function defaultGlobalAlertDefaults(): GlobalAlertDefaults {
+  const preference = defaultPreference('__global__');
+  return {
+    liveStarted: preference.liveStarted,
+    categoryChanged: preference.categoryChanged,
+    titleChanged: preference.titleChanged,
+    keywords: preference.keywords,
+    categoryFilter: preference.categoryFilter,
+  };
+}
+
+function normalizeGlobalAlertDefaults(value: unknown): GlobalAlertDefaults | null {
+  if (!value || typeof value !== 'object') return null;
+  const stored = value as Partial<GlobalAlertDefaults>;
+  const fallback = defaultGlobalAlertDefaults();
+  const categoryKeys = Array.isArray(stored.categoryFilter?.categoryKeys)
+    ? stored.categoryFilter.categoryKeys.filter((key): key is string => typeof key === 'string')
+    : [];
+  return {
+    liveStarted: typeof stored.liveStarted === 'boolean' ? stored.liveStarted : fallback.liveStarted,
+    categoryChanged: typeof stored.categoryChanged === 'boolean' ? stored.categoryChanged : fallback.categoryChanged,
+    titleChanged: typeof stored.titleChanged === 'boolean' ? stored.titleChanged : fallback.titleChanged,
+    keywords: Array.isArray(stored.keywords)
+      ? stored.keywords.filter((keyword): keyword is string => typeof keyword === 'string')
+      : [],
+    categoryFilter: {
+      allCategories: typeof stored.categoryFilter?.allCategories === 'boolean'
+        ? stored.categoryFilter.allCategories
+        : categoryKeys.length === 0,
+      categoryKeys,
+    },
+  };
+}
+
+function preferenceWithDefaults(channelId: string, defaults: GlobalAlertDefaults | null): AlertPreference {
+  if (!defaults) return defaultPreference(channelId);
+  return {
+    channelId,
+    ...defaults,
+    keywords: [...defaults.keywords],
+    categoryFilter: {
+      allCategories: defaults.categoryFilter.allCategories,
+      categoryKeys: [...defaults.categoryFilter.categoryKeys],
+    },
+    enabled: defaults.liveStarted
+      || defaults.categoryChanged
+      || defaults.titleChanged
+      || defaults.keywords.length > 0,
+  };
+}
+
+function inferGlobalAlertDefaults(preferences: AlertPreference[]): GlobalAlertDefaults | null {
+  const candidates = preferences.filter((preference) => !preference.channelId.startsWith('demo-'));
+  if (candidates.length < 2) return null;
+  const groups = new Map<string, { count: number; preference: AlertPreference }>();
+  for (const preference of candidates) {
+    const key = JSON.stringify({
+      liveStarted: preference.liveStarted,
+      categoryChanged: preference.categoryChanged,
+      titleChanged: preference.titleChanged,
+      keywords: preference.keywords,
+      categoryFilter: preference.categoryFilter,
+    });
+    const group = groups.get(key);
+    groups.set(key, group
+      ? { ...group, count: group.count + 1 }
+      : { count: 1, preference });
+  }
+  const largest = [...groups.values()].sort((a, b) => b.count - a.count)[0];
+  if (!largest || largest.count < 2 || largest.count <= candidates.length / 2) return null;
+  const first = largest.preference;
+  return {
+    liveStarted: first.liveStarted,
+    categoryChanged: first.categoryChanged,
+    titleChanged: first.titleChanged,
+    keywords: [...first.keywords],
+    categoryFilter: {
+      allCategories: first.categoryFilter.allCategories,
+      categoryKeys: [...first.categoryFilter.categoryKeys],
+    },
   };
 }
 
@@ -91,17 +179,29 @@ function normalizePreferences(value: unknown): AlertPreference[] {
   });
 }
 
+function trackedPreferences(preferences: AlertPreference[], streamers: Streamer[]) {
+  const trackedChannelIds = new Set(
+    streamers.filter((streamer) => streamer.enabled).map((streamer) => streamer.channelId),
+  );
+  return preferences.filter((preference) => trackedChannelIds.has(preference.channelId));
+}
+
 export function AlertStoreProvider({ children }: { children: React.ReactNode }) {
   const [streamers, setStreamers] = useState(demoStreamers);
   const [categories, setCategories] = useState<LiveCategory[]>(() => mergeCategoryCatalog());
   const [preferences, setPreferences] = useState<AlertPreference[]>(demoPreferences);
   const [hydrated, setHydrated] = useState(false);
+  const [globalDefaults, setGlobalDefaults] = useState<GlobalAlertDefaults | null>(null);
+  const [globalDefaultsHydrated, setGlobalDefaultsHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [usingDemoData, setUsingDemoData] = useState(true);
   const [serverState, setServerState] = useState<ServerState>('connecting');
   const [receivedNotificationLogs, setReceivedNotificationLogs] = useState<ReceivedNotificationLog[]>([]);
   const [notificationState, setNotificationState] = useState<PermissionState>('idle');
+  const [showNotificationTestPrompt, setShowNotificationTestPrompt] = useState(false);
   const searchedCategoryQueries = useRef(new Set<string>());
+  const globalDefaultsRef = useRef<GlobalAlertDefaults | null>(null);
+  const attemptedLegacyDefaultsMigration = useRef(false);
 
   useEffect(() => {
     void hasNativePushSubscription()
@@ -109,6 +209,12 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
         if (connected) setNotificationState('connected');
       })
       .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    void AsyncStorage.getItem(PUSH_TEST_COMPLETED_KEY)
+      .then((completed) => setShowNotificationTestPrompt(completed !== 'true'))
+      .catch(() => setShowNotificationTestPrompt(true));
   }, []);
 
   useEffect(() => {
@@ -146,6 +252,38 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   useEffect(() => {
+    AsyncStorage.getItem(GLOBAL_DEFAULTS_KEY)
+      .then((stored) => {
+        if (!stored) return;
+        const normalized = normalizeGlobalAlertDefaults(JSON.parse(stored));
+        globalDefaultsRef.current = normalized;
+        setGlobalDefaults(normalized);
+      })
+      .catch(() => undefined)
+      .finally(() => setGlobalDefaultsHydrated(true));
+  }, []);
+
+  useEffect(() => {
+    if (!globalDefaultsHydrated) return;
+    globalDefaultsRef.current = globalDefaults;
+    if (globalDefaults) {
+      void AsyncStorage.setItem(GLOBAL_DEFAULTS_KEY, JSON.stringify(globalDefaults));
+    } else {
+      void AsyncStorage.removeItem(GLOBAL_DEFAULTS_KEY);
+    }
+  }, [globalDefaults, globalDefaultsHydrated]);
+
+  useEffect(() => {
+    if (!hydrated || !globalDefaultsHydrated || attemptedLegacyDefaultsMigration.current) return;
+    attemptedLegacyDefaultsMigration.current = true;
+    if (globalDefaultsRef.current) return;
+    const inferred = inferGlobalAlertDefaults(preferences);
+    if (!inferred) return;
+    globalDefaultsRef.current = inferred;
+    void AsyncStorage.setItem(GLOBAL_DEFAULTS_KEY, JSON.stringify(inferred));
+  }, [globalDefaultsHydrated, hydrated, preferences]);
+
+  useEffect(() => {
     AsyncStorage.getItem(CATEGORY_CACHE_KEY)
       .then((stored) => {
         if (stored) setCategories(mergeCategoryCatalog(JSON.parse(stored) as LiveCategory[]));
@@ -174,12 +312,14 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (!hydrated) return;
     void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+    if (serverState !== 'connected') return;
+    const syncedPreferences = trackedPreferences(preferences, streamers);
     const timer = setTimeout(() => {
-      void syncNativePushPreferences(preferences).catch(() => undefined);
-      void syncAppPreferences(preferences).catch(() => undefined);
+      void syncNativePushPreferences(syncedPreferences).catch(() => undefined);
+      void syncAppPreferences(syncedPreferences).catch(() => undefined);
     }, 400);
     return () => clearTimeout(timer);
-  }, [hydrated, preferences]);
+  }, [hydrated, preferences, serverState, streamers]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -190,7 +330,10 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
       setPreferences((current) => current.length > 0 && current.every(
         (preference) => preference.channelId.startsWith('demo-'),
       )
-        ? streamerResult.data.slice(0, 2).map((streamer) => defaultPreference(streamer.channelId))
+        ? streamerResult.data.slice(0, 2).map((streamer) => preferenceWithDefaults(
+            streamer.channelId,
+            globalDefaultsRef.current,
+          ))
         : current);
       setUsingDemoData(false);
       setServerState('connected');
@@ -203,9 +346,10 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   useEffect(() => {
+    if (!globalDefaultsHydrated) return;
     const timer = setTimeout(() => void refresh(), 0);
     return () => clearTimeout(timer);
-  }, [refresh]);
+  }, [globalDefaultsHydrated, refresh]);
 
   const update = useCallback((channelId: string, transform: (item: AlertPreference) => AlertPreference) => {
     setPreferences((current) => current.map((item) => item.channelId === channelId
@@ -219,6 +363,9 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
       const result = await registerForNotifications();
       if (result.status !== 'granted') {
         setNotificationState(result.status);
+        if (result.status === 'denied' && !result.canAskAgain) {
+          await Linking.openSettings();
+        }
         return;
       }
       if (!result.token) {
@@ -228,23 +375,42 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
       await connectNativePush(
         result.token,
         Platform.OS === 'android' ? 'android' : 'ios',
-        preferences,
+        trackedPreferences(preferences, streamers),
       );
       setNotificationState('connected');
     } catch {
       setNotificationState('failed');
     }
-  }, [preferences]);
+  }, [preferences, streamers]);
 
   const testNotifications = useCallback(async () => {
     setNotificationState('working');
     try {
+      const result = await registerForNotifications();
+      if (result.status !== 'granted') {
+        setNotificationState(result.status);
+        if (result.status === 'denied' && !result.canAskAgain) {
+          await Linking.openSettings();
+        }
+        return;
+      }
+      if (!result.token) {
+        setNotificationState('permission_only');
+        return;
+      }
+      await connectNativePush(
+        result.token,
+        Platform.OS === 'android' ? 'android' : 'ios',
+        trackedPreferences(preferences, streamers),
+      );
       await sendNativePushTest();
+      setShowNotificationTestPrompt(false);
+      await AsyncStorage.setItem(PUSH_TEST_COMPLETED_KEY, 'true');
       setNotificationState('connected');
     } catch {
       setNotificationState('failed');
     }
-  }, []);
+  }, [preferences, streamers]);
 
   const value = useMemo<AlertStore>(() => ({
     streamers,
@@ -272,7 +438,7 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
     addChannel(channelId) {
       setPreferences((current) => current.some((item) => item.channelId === channelId)
         ? current
-        : [...current, defaultPreference(channelId)]);
+        : [...current, preferenceWithDefaults(channelId, globalDefaultsRef.current)]);
     },
     removeChannel(channelId) {
       setPreferences((current) => current.filter((item) => item.channelId !== channelId));
@@ -286,7 +452,9 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
         const byChannel = new Map(current.map((item) => [item.channelId, item]));
         if (selected) {
           for (const channelId of target) {
-            if (!byChannel.has(channelId)) byChannel.set(channelId, defaultPreference(channelId));
+            if (!byChannel.has(channelId)) {
+              byChannel.set(channelId, preferenceWithDefaults(channelId, globalDefaultsRef.current));
+            }
           }
         } else {
           for (const channelId of target) byChannel.delete(channelId);
@@ -296,6 +464,8 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
     },
     clearChannels() {
       setPreferences([]);
+      globalDefaultsRef.current = null;
+      setGlobalDefaults(null);
     },
     importAccountData(channelIds, importedPreferences) {
       const normalizedImported = normalizePreferences(importedPreferences);
@@ -304,13 +474,22 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
           .filter((item) => !item.channelId.startsWith('demo-'))
           .map((item) => [item.channelId, item]));
         for (const channelId of channelIds) {
-          if (!merged.has(channelId)) merged.set(channelId, defaultPreference(channelId));
+          if (!merged.has(channelId)) {
+            merged.set(channelId, preferenceWithDefaults(channelId, globalDefaultsRef.current));
+          }
         }
         for (const preference of normalizedImported) merged.set(preference.channelId, preference);
         return [...merged.values()];
       });
     },
     updateAllRules(rules) {
+      const nextDefaults = {
+        ...(globalDefaultsRef.current ?? defaultGlobalAlertDefaults()),
+        ...rules,
+        keywords: [...rules.keywords],
+      };
+      globalDefaultsRef.current = nextDefaults;
+      setGlobalDefaults(nextDefaults);
       setPreferences((current) => current.map((item) => ({
         ...item,
         ...rules,
@@ -318,16 +497,32 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
       })));
     },
     updateAllCategoryFilter(categoryFilter) {
-      setPreferences((current) => current.map((item) => ({ ...item, categoryFilter })));
+      const nextDefaults = {
+        ...(globalDefaultsRef.current ?? defaultGlobalAlertDefaults()),
+        categoryFilter: {
+          allCategories: categoryFilter.allCategories,
+          categoryKeys: [...categoryFilter.categoryKeys],
+        },
+      };
+      globalDefaultsRef.current = nextDefaults;
+      setGlobalDefaults(nextDefaults);
+      setPreferences((current) => current.map((item) => ({
+        ...item,
+        categoryFilter: {
+          allCategories: categoryFilter.allCategories,
+          categoryKeys: [...categoryFilter.categoryKeys],
+        },
+      })));
     },
     notificationState,
+    showNotificationTestPrompt,
     connectNotifications,
     testNotifications,
     async clearReceivedNotificationLogs() {
       setReceivedNotificationLogs([]);
       await clearReceivedNotificationLogs();
     },
-  }), [categories, connectNotifications, loading, notificationState, preferences, receivedNotificationLogs, refresh, searchCategories, serverState, streamers, testNotifications, update, usingDemoData]);
+  }), [categories, connectNotifications, loading, notificationState, preferences, receivedNotificationLogs, refresh, searchCategories, serverState, showNotificationTestPrompt, streamers, testNotifications, update, usingDemoData]);
 
   return <AlertStoreContext.Provider value={value}>{children}</AlertStoreContext.Provider>;
 }

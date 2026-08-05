@@ -38,8 +38,8 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#141517",
-          "image": "./assets/images/gudegi-mascot-face-icon.png",
-          "imageWidth": 76
+          "image": "./assets/images/gudegi-splash-brand.png",
+          "imageWidth": 190
         }
       ],
       "expo-notifications",
