@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 
 export type NotificationRegistration =
   | { status: 'granted'; token: string | null }
-  | { status: 'denied'; token: null }
+  | { status: 'denied'; token: null; canAskAgain: boolean }
   | { status: 'device_required'; token: null };
 
 Notifications.setNotificationHandler({
@@ -23,10 +23,21 @@ export async function registerForNotifications(): Promise<NotificationRegistrati
   }
 
   const current = await Notifications.getPermissionsAsync();
+  if (current.status === 'denied' && !current.canAskAgain) {
+    return { status: 'denied', token: null, canAskAgain: false };
+  }
   const permission = current.status === 'granted'
     ? current
-    : await Notifications.requestPermissionsAsync();
-  if (permission.status !== 'granted') return { status: 'denied', token: null };
+    : await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+        },
+      });
+  if (permission.status !== 'granted') {
+    return { status: 'denied', token: null, canAskAgain: permission.canAskAgain };
+  }
 
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('alerts', {

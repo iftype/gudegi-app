@@ -1,17 +1,22 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/screen-header';
 import { palette, radius } from '@/constants/theme';
 import { useAlertStore } from '@/features/alerts/alert-store';
+import { useLocalRefresh } from '@/hooks/use-local-refresh';
 import { openChzzkLive } from '@/navigation/open-chzzk-live';
+
+const FILTER_GUIDE_COMPLETED_KEY = 'gudegi-native-filter-guide-completed-v1';
 
 export default function StreamersScreen() {
   const store = useAlertStore();
+  const tabRefresh = useLocalRefresh(store.refresh);
   const [query, setQuery] = useState('');
   const selected = useMemo(() => new Set(store.preferences.map((item) => item.channelId)), [store.preferences]);
   const visible = useMemo(() => store.streamers.filter((streamer) => streamer.channelName
@@ -19,6 +24,19 @@ export default function StreamersScreen() {
     .includes(query.trim().toLocaleLowerCase('ko-KR'))), [query, store.streamers]);
   const visibleIds = useMemo(() => visible.map((streamer) => streamer.channelId), [visible]);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((channelId) => selected.has(channelId));
+
+  async function addChannel(channelId: string) {
+    store.addChannel(channelId);
+    let completed = false;
+    try {
+      completed = await AsyncStorage.getItem(FILTER_GUIDE_COMPLETED_KEY) === 'true';
+      if (completed) return;
+      await AsyncStorage.setItem(FILTER_GUIDE_COMPLETED_KEY, 'true');
+    } catch {
+      // 안내 상태 저장에 실패해도 이번 설정 안내는 표시합니다.
+    }
+    router.navigate({ pathname: '/alert-rules', params: { channelId, guide: 'first-add' } });
+  }
 
   function confirmSelectAll() {
     if (!visibleIds.length) return;
@@ -42,8 +60,10 @@ export default function StreamersScreen() {
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <ScreenHeader onRefresh={() => void store.refresh()} serverUnavailable={store.serverState === 'unavailable'} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScreenHeader serverUnavailable={store.serverState === 'unavailable'} />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={tabRefresh.refreshing} onRefresh={tabRefresh.onRefresh} tintColor={palette.accent} />}>
         <View style={styles.intro}>
           <Text style={styles.title}>스트리머</Text>
         </View>
@@ -98,7 +118,7 @@ export default function StreamersScreen() {
                 <View style={styles.rowActions}>
                   <Pressable
                     accessibilityLabel={`${streamer.channelName} ${added ? '알림 삭제' : '알림 추가'}`}
-                    onPress={() => added ? store.removeChannel(streamer.channelId) : store.addChannel(streamer.channelId)}
+                    onPress={() => added ? store.removeChannel(streamer.channelId) : void addChannel(streamer.channelId)}
                     style={[styles.addButton, added && styles.addedButton]}>
                     <SymbolView
                       name={{ ios: added ? 'checkmark' : 'plus', android: added ? 'check' : 'add' }}

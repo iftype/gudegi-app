@@ -23,26 +23,18 @@ function timeLabel(timestamp: number) {
   }).format(new Date(timestamp));
 }
 
-function dayKey(timestamp: number) {
-  const date = new Date(timestamp);
-  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-}
-
-function dayLabel(timestamp: number) {
+function fullDateLabel(timestamp: number) {
   return new Intl.DateTimeFormat('ko-KR', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-    weekday: 'short',
   }).format(new Date(timestamp));
 }
 
-function shortDateTimeLabel(timestamp: number) {
+function monthDayLabel(timestamp: number) {
   return new Intl.DateTimeFormat('ko-KR', {
-    month: 'numeric',
+    month: 'long',
     day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   }).format(new Date(timestamp));
 }
 
@@ -88,12 +80,9 @@ function groupByBroadcast(events: StreamerAlertEvent[]): BroadcastSession[] {
 }
 
 function sessionLabel(session: BroadcastSession) {
-  const start = `${dayLabel(session.startedAt)} · ${timeLabel(session.startedAt)}`;
+  const start = fullDateLabel(session.startedAt);
   if (!session.endedAt) return session.items[0]?.eventType === 'live_started' ? `${start}–방송 중` : start;
-  const end = dayKey(session.startedAt) === dayKey(session.endedAt)
-    ? timeLabel(session.endedAt)
-    : shortDateTimeLabel(session.endedAt);
-  return `${start}–${end}`;
+  return `${start} – ${monthDayLabel(session.endedAt)}`;
 }
 
 export default function AlertLogSheet() {
@@ -143,7 +132,7 @@ export default function AlertLogSheet() {
       <View style={styles.header}>
         <View style={styles.headerText}>
           <Text style={styles.title}>알림 기록</Text>
-          <Text numberOfLines={1} style={styles.subtitle}>{streamer?.channelName ?? '스트리머'} · 최신순</Text>
+          <Text numberOfLines={1} style={styles.subtitle}>{streamer?.channelName ?? '스트리머'}</Text>
         </View>
         <Pressable accessibilityLabel="닫기" onPress={() => router.back()} style={styles.closeButton}>
           <SymbolView name={{ ios: 'xmark', android: 'close' }} size={15} tintColor={palette.textSecondary} />
@@ -152,7 +141,6 @@ export default function AlertLogSheet() {
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={palette.accent} />}>
-        <Text style={styles.description}>방송 시작부터 종료까지 한 묶음으로 표시합니다.</Text>
         <View style={styles.groups}>
           {eventGroups.map((group) => (
             <View key={group.key} style={styles.dateGroup}>
@@ -173,11 +161,10 @@ export default function AlertLogSheet() {
                               <Text numberOfLines={1} style={styles.startCategory}>{event.category}</Text>
                             )}
                           </View>
-                          <Text style={styles.date}>
-                            {dayKey(event.occurredAt) === dayKey(group.startedAt)
-                              ? timeLabel(event.occurredAt)
-                              : shortDateTimeLabel(event.occurredAt)}
-                          </Text>
+                          <View style={styles.date}>
+                            <Text style={styles.eventDate}>{monthDayLabel(event.occurredAt)}</Text>
+                            <Text style={styles.eventTime}>{timeLabel(event.occurredAt)}</Text>
+                          </View>
                         </View>
                         {event.eventType === 'live_started' && (
                           <Text numberOfLines={2} style={styles.value}>{event.newValue ?? event.broadcastTitle}</Text>
@@ -220,8 +207,7 @@ const styles = StyleSheet.create({
   title: { color: palette.text, fontSize: 26, fontWeight: '900', letterSpacing: -1 },
   subtitle: { marginTop: 2, color: palette.textSecondary, fontSize: 12 },
   closeButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
-  content: { paddingHorizontal: 18, paddingBottom: 88 },
-  description: { marginBottom: 10, color: palette.textSecondary, fontSize: 12, lineHeight: 17 },
+  content: { paddingHorizontal: 18, paddingTop: 4, paddingBottom: 88 },
   groups: { gap: 24 },
   dateGroup: { gap: 9 },
   dayLabel: { marginLeft: 3, color: palette.textSecondary, fontSize: 12, fontWeight: '800' },
@@ -233,7 +219,9 @@ const styles = StyleSheet.create({
   eventHeading: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
   eventLabel: { color: palette.text, fontSize: 14, fontWeight: '800' },
   startCategory: { flexShrink: 1, color: palette.textSecondary, fontSize: 10, fontWeight: '700' },
-  date: { color: palette.textMuted, fontSize: 10 },
+  date: { flexShrink: 0, alignItems: 'flex-end', gap: 2 },
+  eventDate: { color: palette.textSecondary, fontSize: 10, fontWeight: '700' },
+  eventTime: { color: palette.textMuted, fontSize: 10 },
   value: { color: palette.textSecondary, fontSize: 12, lineHeight: 17 },
   changeValues: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   previous: { maxWidth: '40%', color: palette.textMuted, fontSize: 11 },

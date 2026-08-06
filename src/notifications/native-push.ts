@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 
-import { apiRequest } from '@/api/client';
+import { apiBaseUrl, apiRequest } from '@/api/client';
 import type { AlertPreference } from '@/types';
 
 const INSTALLATION_ID_KEY = 'gudegi-native-installation-id-v1';
-const SUBSCRIPTION_ID_KEY = 'gudegi-native-push-subscription-id-v1';
+const SUBSCRIPTION_ID_KEY = `gudegi-native-push-subscription-id-v2:${apiBaseUrl}`;
 const REAL_CHANNEL_ID = /^[a-f0-9]{32}$/;
 
 export type NativePlatform = 'ios' | 'android';

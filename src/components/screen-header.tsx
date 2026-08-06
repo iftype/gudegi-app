@@ -5,17 +5,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Brand } from '@/components/brand';
 import { palette, radius } from '@/constants/theme';
 
-export function ScreenHeader({ onRefresh, serverUnavailable = false }: { onRefresh?: () => void; serverUnavailable?: boolean }) {
+export function ScreenHeader({ serverUnavailable = false }: { serverUnavailable?: boolean }) {
   return (
     <View>
       <View style={styles.header}>
         <Brand />
         <View style={styles.actions}>
-          {onRefresh && (
-            <Pressable accessibilityLabel="새로고침" onPress={onRefresh} style={styles.iconButton}>
-              <SymbolView name={{ ios: 'arrow.clockwise', android: 'refresh' }} size={15} tintColor={palette.textSecondary} />
-            </Pressable>
-          )}
           <Pressable accessibilityLabel="제안하기" onPress={() => router.navigate('/suggestion')} style={styles.guideButton}>
             <SymbolView name={{ ios: 'lightbulb', android: 'lightbulb' }} size={13} tintColor={palette.textSecondary} />
             <Text style={styles.guideText}>제안</Text>
@@ -43,14 +38,6 @@ const styles = StyleSheet.create({
     borderBottomColor: palette.border,
   },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  iconButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: palette.surface,
-    borderRadius: radius.control,
-  },
   guideButton: {
     height: 32,
     flexDirection: 'row',

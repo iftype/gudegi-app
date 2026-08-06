@@ -2,7 +2,6 @@ import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
-  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -18,10 +17,12 @@ import { AlertRow } from '@/components/alert-row';
 import { ScreenHeader } from '@/components/screen-header';
 import { palette, radius } from '@/constants/theme';
 import { useAlertStore } from '@/features/alerts/alert-store';
+import { useLocalRefresh } from '@/hooks/use-local-refresh';
 
 export default function AlertsScreen() {
   const router = useRouter();
   const store = useAlertStore();
+  const tabRefresh = useLocalRefresh(store.refresh);
   const [query, setQuery] = useState('');
   const preferenceByChannel = useMemo(
     () => new Map(store.preferences.map((item) => [item.channelId, item])),
@@ -33,7 +34,7 @@ export default function AlertsScreen() {
       .includes(query.trim().toLocaleLowerCase('ko-KR')))
     .sort((a, b) => Number(b.isLive) - Number(a.isLive)), [preferenceByChannel, query, store.streamers]);
   const enabledCount = store.preferences.filter((item) => item.enabled).length;
-  const allEnabled = store.preferences.length > 0 && enabledCount === store.preferences.length;
+  const allMuted = store.preferences.length > 0 && enabledCount === 0;
   const notificationLabel = store.notificationState === 'connected'
     ? '기기알림 연결됨'
     : store.notificationState === 'working'
@@ -42,19 +43,12 @@ export default function AlertsScreen() {
         ? '알림 권한 승인됨'
         : '기기알림 연결하기';
 
-  function clearAlerts() {
-    Alert.alert('알림목록 전체삭제', '저장한 스트리머와 개인 알림 설정을 모두 삭제할까요?', [
-      { text: '취소', style: 'cancel' },
-      { text: '전체삭제', style: 'destructive', onPress: store.clearChannels },
-    ]);
-  }
-
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <ScreenHeader onRefresh={() => void store.refresh()} serverUnavailable={store.serverState === 'unavailable'} />
+      <ScreenHeader serverUnavailable={store.serverState === 'unavailable'} />
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={store.loading} onRefresh={store.refresh} tintColor={palette.accent} />}>
+        refreshControl={<RefreshControl refreshing={tabRefresh.refreshing} onRefresh={tabRefresh.onRefresh} tintColor={palette.accent} />}>
         <View style={styles.intro}>
           <View style={styles.introHeading}>
             <View style={styles.introText}>
@@ -70,16 +64,25 @@ export default function AlertsScreen() {
           </View>
         </View>
 
-        <View style={styles.management}>
-          <Pressable onPress={() => router.navigate('/follow-import')} style={({ pressed }) => [styles.managementButton, pressed && styles.pressed]}>
-            <SymbolView name={{ ios: 'person.crop.circle.badge.plus', android: 'person_add' }} size={15} tintColor={palette.textSecondary} />
-            <Text style={styles.managementText}>팔로우 불러오기</Text>
-          </Pressable>
-          <Pressable disabled={!store.preferences.length} onPress={clearAlerts} style={({ pressed }) => [styles.managementButton, pressed && styles.pressed]}>
-            <SymbolView name={{ ios: 'trash', android: 'delete' }} size={14} tintColor={palette.textSecondary} />
-            <Text style={styles.managementText}>알림목록 전체삭제</Text>
-          </Pressable>
-        </View>
+        {store.showNotificationTestPrompt && (
+          <View style={styles.testNotification}>
+            <View style={styles.testNotificationIcon}>
+              <SymbolView name={{ ios: 'bell.badge', android: 'notifications_active' }} size={18} tintColor={palette.accent} />
+            </View>
+            <View style={styles.testNotificationText}>
+              <Text style={styles.testNotificationTitle}>테스트 알림 받아보기</Text>
+              <Text style={styles.testNotificationDescription}>알림 연결과 수신 여부를 한 번 확인해보세요.</Text>
+            </View>
+            <Pressable
+              disabled={store.notificationState === 'working'}
+              onPress={() => void store.testNotifications()}
+              style={({ pressed }) => [styles.testNotificationButton, pressed && styles.pressed]}>
+              <Text style={styles.testNotificationButtonText}>
+                {store.notificationState === 'working' ? '전송 중' : '테스트'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
         <View style={styles.search}>
           <SymbolView name={{ ios: 'magnifyingglass', android: 'search' }} size={15} tintColor={palette.textMuted} />
@@ -97,7 +100,7 @@ export default function AlertsScreen() {
             onPress={() => router.navigate({ pathname: '/alert-rules', params: { scope: 'all' } })}
             style={({ pressed }) => [styles.globalFilter, pressed && styles.pressed]}>
             <View style={styles.globalFilterIcon}>
-              <SymbolView name={{ ios: 'line.3.horizontal.decrease', android: 'filter_list' }} size={15} tintColor={palette.accent} />
+              <SymbolView name={{ ios: 'slider.horizontal.3', android: 'tune' }} size={16} tintColor={palette.accent} />
             </View>
             <View style={styles.globalFilterText}>
               <Text style={styles.globalFilterTitle}>조건 전체 적용</Text>
@@ -106,16 +109,17 @@ export default function AlertsScreen() {
           </Pressable>
           <View style={styles.allToggle}>
             <View>
-              <Text style={styles.allToggleTitle}>전체 선택</Text>
-              <Text style={styles.allToggleCount}>{enabledCount}/{store.preferences.length}</Text>
+              <Text style={styles.allToggleTitle}>알림 끄기</Text>
+              <Text style={styles.allToggleCount}>켜짐 {enabledCount}/{store.preferences.length}</Text>
             </View>
             <Switch
-              accessibilityLabel="전체 선택"
+              accessibilityLabel="모든 스트리머 알림 끄기"
+              disabled={!store.preferences.length}
               style={styles.allSwitch}
-              value={allEnabled}
-              onValueChange={store.setAllEnabled}
-              trackColor={{ false: palette.surfaceRaised, true: palette.accent }}
-              thumbColor={allEnabled ? palette.accentText : palette.textSecondary}
+              value={allMuted}
+              onValueChange={(muted) => store.setAllEnabled(!muted)}
+              trackColor={{ false: palette.surfaceRaised, true: palette.surfaceSelected }}
+              thumbColor={allMuted ? palette.danger : palette.textSecondary}
             />
           </View>
         </View>
@@ -165,6 +169,22 @@ const styles = StyleSheet.create({
   connectButton: { minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.control },
   connectButtonDone: { backgroundColor: palette.surfaceSelected, borderColor: palette.borderStrong },
   connectButtonText: { color: palette.text, fontSize: 11, fontWeight: '800' },
+  testNotification: {
+    minHeight: 66,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 9,
+    paddingHorizontal: 12,
+    backgroundColor: palette.surface,
+    borderRadius: radius.card,
+  },
+  testNotificationIcon: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
+  testNotificationText: { flex: 1, minWidth: 0, gap: 2 },
+  testNotificationTitle: { color: palette.text, fontSize: 13, fontWeight: '800' },
+  testNotificationDescription: { color: palette.textSecondary, fontSize: 11, lineHeight: 15 },
+  testNotificationButton: { minHeight: 34, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 11, backgroundColor: palette.accent, borderRadius: radius.control },
+  testNotificationButtonText: { color: palette.accentText, fontSize: 12, fontWeight: '900' },
   pushBanner: {
     minHeight: 52,
     flexDirection: 'row',
@@ -176,9 +196,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
   },
   pushBannerText: { color: palette.accentText, fontSize: 13, fontWeight: '900' },
-  management: { flexDirection: 'row', gap: 8, marginBottom: 9 },
-  managementButton: { flex: 1, minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: palette.surface, borderRadius: radius.control },
-  managementText: { color: palette.text, fontSize: 12, fontWeight: '800' },
   globalFilter: { flex: 1, height: 46, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, backgroundColor: palette.surface, borderRadius: radius.card },
   globalFilterIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
   globalFilterText: { flex: 1 },
@@ -196,7 +213,7 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, color: palette.text, fontSize: 15 },
   allToggle: {
-    minWidth: 124,
+    minWidth: 132,
     height: 46,
     flexDirection: 'row',
     alignItems: 'center',

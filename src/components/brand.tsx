@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { palette, radius } from '@/constants/theme';
 
@@ -14,10 +14,12 @@ export function Brand() {
           style={styles.markImage}
         />
       </View>
-      <View>
-        <Text style={styles.name}>구데기</Text>
-        <Text style={styles.tagline}>원하는 방송만 골라보기</Text>
-      </View>
+      <Image
+        accessibilityLabel="구데기"
+        contentFit="contain"
+        source={require('../../assets/images/gudegi-wordmark.png')}
+        style={styles.wordmark}
+      />
     </View>
   );
 }
@@ -34,6 +36,5 @@ const styles = StyleSheet.create({
     borderRadius: radius.control,
   },
   markImage: { width: '100%', height: '100%' },
-  name: { color: palette.text, fontSize: 18, fontWeight: '900', letterSpacing: -0.7 },
-  tagline: { color: palette.textMuted, fontSize: 11, fontWeight: '600' },
+  wordmark: { width: 74, height: 32 },
 });

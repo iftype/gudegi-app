@@ -34,7 +34,7 @@ function categoryTypeLabel(categoryType: string) {
 }
 
 export default function AlertRulesSheet() {
-  const { channelId, scope } = useLocalSearchParams<{ channelId?: string; scope?: string }>();
+  const { channelId, scope, guide } = useLocalSearchParams<{ channelId?: string; scope?: string; guide?: string }>();
   const store = useAlertStore();
   const isAll = scope === 'all';
   const { searchCategories } = store;
@@ -137,35 +137,73 @@ export default function AlertRulesSheet() {
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled">
         {activePane === 'main' && (
-          <View style={styles.choiceList}>
-            {ruleChoices.map((choice) => {
-              const selected = rules[choice.key];
-              const configurable = choice.key !== 'liveStarted';
-              const icon = choice.key === 'liveStarted'
-                ? { ios: 'bell.badge' as const, android: 'notifications_active' as const }
-                : choice.key === 'titleChanged'
-                  ? { ios: 'textformat' as const, android: 'title' as const }
-                  : { ios: 'tag' as const, android: 'sell' as const };
-              const description = choice.key === 'titleChanged'
-                ? rules.keywords.length
-                  ? `${rules.keywords.length}개 키워드 등록됨`
-                  : '누르면 방제 키워드를 설정해요.'
-                : choice.key === 'categoryChanged'
-                  ? categoryFilter.categoryKeys.length
-                    ? `${categoryFilter.categoryKeys.length}개 카테고리만 알림`
-                    : '모든 카테고리 변경을 알려드려요.'
-                  : choice.description;
-              const toggle = () => setRules((current) => ({ ...current, [choice.key]: !current[choice.key] }));
-              if (!configurable) {
+          <View>
+            {guide === 'first-add' && (
+              <View style={styles.firstAddGuide}>
+                <View style={styles.firstAddGuideIcon}>
+                  <SymbolView name={{ ios: 'slider.horizontal.3', android: 'tune' }} size={18} tintColor={palette.accent} />
+                </View>
+                <View style={styles.firstAddGuideText}>
+                  <Text style={styles.firstAddGuideTitle}>어떤 알림을 받을지 선택해 주세요</Text>
+                  <Text style={styles.firstAddGuideDescription}>나중에는 알림 관리에서 스트리머를 누르면 다시 바꿀 수 있어요.</Text>
+                </View>
+              </View>
+            )}
+            <View style={styles.choiceList}>
+              {ruleChoices.map((choice) => {
+                const selected = rules[choice.key];
+                const configurable = choice.key !== 'liveStarted';
+                const icon = choice.key === 'liveStarted'
+                  ? { ios: 'bell.badge' as const, android: 'notifications_active' as const }
+                  : choice.key === 'titleChanged'
+                    ? { ios: 'textformat' as const, android: 'title' as const }
+                    : { ios: 'tag' as const, android: 'sell' as const };
+                const description = choice.key === 'titleChanged'
+                  ? rules.keywords.length
+                    ? `${rules.keywords.length}개 키워드 등록됨`
+                    : '누르면 방제 키워드를 설정해요.'
+                  : choice.key === 'categoryChanged'
+                    ? categoryFilter.categoryKeys.length
+                      ? `${categoryFilter.categoryKeys.length}개 카테고리만 알림`
+                      : '모든 카테고리 변경을 알려드려요.'
+                    : choice.description;
+                const toggle = () => setRules((current) => ({ ...current, [choice.key]: !current[choice.key] }));
+                if (!configurable) {
+                  return (
+                    <Pressable
+                      key={choice.key}
+                      accessibilityLabel={`${choice.label} ${selected ? '끄기' : '켜기'}`}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selected }}
+                      onPress={toggle}
+                      style={({ pressed }) => [styles.choice, selected && styles.choiceSelected, pressed && styles.choicePressed]}>
+                      <View style={styles.choiceBody}>
+                        <View style={[styles.choiceIcon, selected && styles.choiceIconSelected]}>
+                          <SymbolView name={icon} size={16} tintColor={selected ? palette.accent : palette.textSecondary} />
+                        </View>
+                        <View style={styles.choiceText}>
+                          <Text style={styles.choiceTitle}>{choice.label}</Text>
+                          <Text style={styles.choiceDescription}>{description}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.choiceDivider} />
+                      <View style={styles.checkButton}>
+                        <View style={[styles.check, selected && styles.checkSelected]}>
+                          {selected && <SymbolView name={{ ios: 'checkmark', android: 'check' }} size={14} tintColor={palette.accentText} />}
+                        </View>
+                      </View>
+                    </Pressable>
+                  );
+                }
                 return (
-                  <Pressable
-                    key={choice.key}
-                    accessibilityLabel={`${choice.label} ${selected ? '끄기' : '켜기'}`}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: selected }}
-                    onPress={toggle}
-                    style={({ pressed }) => [styles.choice, selected && styles.choiceSelected, pressed && styles.choicePressed]}>
-                    <View style={styles.choiceBody}>
+                  <View key={choice.key} style={styles.splitChoice}>
+                    <Pressable
+                      accessibilityLabel={`${choice.label} 설정`}
+                      onPress={() => {
+                        if (choice.key === 'titleChanged') setActivePane('keywords');
+                        else setActivePane('categories');
+                      }}
+                      style={({ pressed }) => [styles.choiceSettings, selected && styles.choiceSelected, pressed && styles.choicePressed]}>
                       <View style={[styles.choiceIcon, selected && styles.choiceIconSelected]}>
                         <SymbolView name={icon} size={16} tintColor={selected ? palette.accent : palette.textSecondary} />
                       </View>
@@ -173,47 +211,22 @@ export default function AlertRulesSheet() {
                         <Text style={styles.choiceTitle}>{choice.label}</Text>
                         <Text style={styles.choiceDescription}>{description}</Text>
                       </View>
-                    </View>
-                    <View style={styles.choiceDivider} />
-                    <View style={styles.checkButton}>
+                      <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right' }} size={13} tintColor={palette.textMuted} />
+                    </Pressable>
+                    <Pressable
+                      accessibilityLabel={`${choice.label} ${selected ? '끄기' : '켜기'}`}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selected }}
+                      onPress={toggle}
+                      style={({ pressed }) => [styles.detachedCheckButton, selected && styles.detachedCheckButtonSelected, pressed && styles.choicePressed]}>
                       <View style={[styles.check, selected && styles.checkSelected]}>
                         {selected && <SymbolView name={{ ios: 'checkmark', android: 'check' }} size={14} tintColor={palette.accentText} />}
                       </View>
-                    </View>
-                  </Pressable>
+                    </Pressable>
+                  </View>
                 );
-              }
-              return (
-                <View key={choice.key} style={styles.splitChoice}>
-                  <Pressable
-                    accessibilityLabel={`${choice.label} 설정`}
-                    onPress={() => {
-                      if (choice.key === 'titleChanged') setActivePane('keywords');
-                      else setActivePane('categories');
-                    }}
-                    style={({ pressed }) => [styles.choiceSettings, selected && styles.choiceSelected, pressed && styles.choicePressed]}>
-                    <View style={[styles.choiceIcon, selected && styles.choiceIconSelected]}>
-                      <SymbolView name={icon} size={16} tintColor={selected ? palette.accent : palette.textSecondary} />
-                    </View>
-                    <View style={styles.choiceText}>
-                      <Text style={styles.choiceTitle}>{choice.label}</Text>
-                      <Text style={styles.choiceDescription}>{description}</Text>
-                    </View>
-                    <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right' }} size={13} tintColor={palette.textMuted} />
-                  </Pressable>
-                  <Pressable
-                    accessibilityLabel={`${choice.label} ${selected ? '끄기' : '켜기'}`}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: selected }}
-                    onPress={toggle}
-                    style={({ pressed }) => [styles.detachedCheckButton, selected && styles.detachedCheckButtonSelected, pressed && styles.choicePressed]}>
-                    <View style={[styles.check, selected && styles.checkSelected]}>
-                      {selected && <SymbolView name={{ ios: 'checkmark', android: 'check' }} size={14} tintColor={palette.accentText} />}
-                    </View>
-                  </Pressable>
-                </View>
-              );
-            })}
+              })}
+            </View>
           </View>
         )}
 
@@ -383,6 +396,11 @@ const styles = StyleSheet.create({
   subtitle: { marginTop: 2, color: palette.textSecondary, fontSize: 12 },
   closeButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
   content: { flexGrow: 1, paddingHorizontal: 18, paddingBottom: 72 },
+  firstAddGuide: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12, padding: 12, backgroundColor: palette.surfaceRaised, borderRadius: radius.card },
+  firstAddGuideIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceSelected, borderRadius: radius.control },
+  firstAddGuideText: { flex: 1, minWidth: 0, gap: 2 },
+  firstAddGuideTitle: { color: palette.text, fontSize: 14, fontWeight: '800' },
+  firstAddGuideDescription: { color: palette.textSecondary, fontSize: 11, lineHeight: 16 },
   choiceList: { gap: 8 },
   splitChoice: { minHeight: 68, flexDirection: 'row', alignItems: 'stretch', gap: 7 },
   choiceSettings: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 11, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.card },
