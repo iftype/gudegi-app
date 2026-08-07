@@ -123,9 +123,7 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <View style={styles.statusRow}>
             <Text style={styles.statusLabel}>데이터 서버</Text>
-            <Text style={[styles.statusValue, !store.usingDemoData && styles.statusOk]}>
-              {store.usingDemoData ? '미리보기 모드' : '연결됨'}
-            </Text>
+            <Text style={[styles.statusValue, styles.statusOk]}>연결됨</Text>
           </View>
         </View>
 

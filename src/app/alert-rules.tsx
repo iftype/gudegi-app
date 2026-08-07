@@ -34,7 +34,7 @@ function categoryTypeLabel(categoryType: string) {
 }
 
 export default function AlertRulesSheet() {
-  const { channelId, scope, guide } = useLocalSearchParams<{ channelId?: string; scope?: string; guide?: string }>();
+  const { channelId, scope } = useLocalSearchParams<{ channelId?: string; scope?: string }>();
   const store = useAlertStore();
   const isAll = scope === 'all';
   const { searchCategories } = store;
@@ -138,17 +138,6 @@ export default function AlertRulesSheet() {
         keyboardShouldPersistTaps="handled">
         {activePane === 'main' && (
           <View>
-            {guide === 'first-add' && (
-              <View style={styles.firstAddGuide}>
-                <View style={styles.firstAddGuideIcon}>
-                  <SymbolView name={{ ios: 'slider.horizontal.3', android: 'tune' }} size={18} tintColor={palette.accent} />
-                </View>
-                <View style={styles.firstAddGuideText}>
-                  <Text style={styles.firstAddGuideTitle}>어떤 알림을 받을지 선택해 주세요</Text>
-                  <Text style={styles.firstAddGuideDescription}>나중에는 알림 관리에서 스트리머를 누르면 다시 바꿀 수 있어요.</Text>
-                </View>
-              </View>
-            )}
             <View style={styles.choiceList}>
               {ruleChoices.map((choice) => {
                 const selected = rules[choice.key];
@@ -303,9 +292,6 @@ export default function AlertRulesSheet() {
                       </Pressable>
                     );
                   })}
-                  {!categoryQuery.trim() && (
-                    <Text style={styles.emptyText}>찾고 싶은 카테고리 이름을 입력해 주세요.</Text>
-                  )}
                   {!!categoryQuery.trim() && !categoryResults.length && (
                     <Text style={styles.emptyText}>일치하는 카테고리가 없습니다.</Text>
                   )}
@@ -396,11 +382,6 @@ const styles = StyleSheet.create({
   subtitle: { marginTop: 2, color: palette.textSecondary, fontSize: 12 },
   closeButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
   content: { flexGrow: 1, paddingHorizontal: 18, paddingBottom: 72 },
-  firstAddGuide: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12, padding: 12, backgroundColor: palette.surfaceRaised, borderRadius: radius.card },
-  firstAddGuideIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceSelected, borderRadius: radius.control },
-  firstAddGuideText: { flex: 1, minWidth: 0, gap: 2 },
-  firstAddGuideTitle: { color: palette.text, fontSize: 14, fontWeight: '800' },
-  firstAddGuideDescription: { color: palette.textSecondary, fontSize: 11, lineHeight: 16 },
   choiceList: { gap: 8 },
   splitChoice: { minHeight: 68, flexDirection: 'row', alignItems: 'stretch', gap: 7 },
   choiceSettings: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 11, backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border, borderRadius: radius.card },

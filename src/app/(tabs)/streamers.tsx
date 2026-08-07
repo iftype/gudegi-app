@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import { router } from 'expo-router';
@@ -12,8 +11,6 @@ import { useAlertStore } from '@/features/alerts/alert-store';
 import { useLocalRefresh } from '@/hooks/use-local-refresh';
 import { openChzzkLive } from '@/navigation/open-chzzk-live';
 
-const FILTER_GUIDE_COMPLETED_KEY = 'gudegi-native-filter-guide-completed-v1';
-
 export default function StreamersScreen() {
   const store = useAlertStore();
   const tabRefresh = useLocalRefresh(store.refresh);
@@ -25,17 +22,8 @@ export default function StreamersScreen() {
   const visibleIds = useMemo(() => visible.map((streamer) => streamer.channelId), [visible]);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((channelId) => selected.has(channelId));
 
-  async function addChannel(channelId: string) {
+  function addChannel(channelId: string) {
     store.addChannel(channelId);
-    let completed = false;
-    try {
-      completed = await AsyncStorage.getItem(FILTER_GUIDE_COMPLETED_KEY) === 'true';
-      if (completed) return;
-      await AsyncStorage.setItem(FILTER_GUIDE_COMPLETED_KEY, 'true');
-    } catch {
-      // 안내 상태 저장에 실패해도 이번 설정 안내는 표시합니다.
-    }
-    router.navigate({ pathname: '/alert-rules', params: { channelId, guide: 'first-add' } });
   }
 
   function confirmSelectAll() {
@@ -118,7 +106,7 @@ export default function StreamersScreen() {
                 <View style={styles.rowActions}>
                   <Pressable
                     accessibilityLabel={`${streamer.channelName} ${added ? '알림 삭제' : '알림 추가'}`}
-                    onPress={() => added ? store.removeChannel(streamer.channelId) : void addChannel(streamer.channelId)}
+                    onPress={() => added ? store.removeChannel(streamer.channelId) : addChannel(streamer.channelId)}
                     style={[styles.addButton, added && styles.addedButton]}>
                     <SymbolView
                       name={{ ios: added ? 'checkmark' : 'plus', android: added ? 'check' : 'add' }}

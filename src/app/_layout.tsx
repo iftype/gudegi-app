@@ -6,6 +6,10 @@ import { AlertStoreProvider } from '@/features/alerts/alert-store';
 import { palette } from '@/constants/theme';
 import { NotificationResponseListener } from '@/notifications/notification-response-listener';
 
+export const unstable_settings = {
+  anchor: '(tabs)',
+};
+
 const gudegiTheme = {
   ...DarkTheme,
   colors: {

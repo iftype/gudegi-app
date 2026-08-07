@@ -4,7 +4,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Linking, Platform } from 'react-native';
 
 import { api, apiBaseUrl } from '@/api/client';
-import { demoPreferences, demoStreamers } from '@/data/demo';
 import { mergeCategoryCatalog } from '@/data/category-catalog';
 import {
   connectNativePush,
@@ -37,7 +36,6 @@ type AlertStore = {
   categories: LiveCategory[];
   preferences: AlertPreference[];
   loading: boolean;
-  usingDemoData: boolean;
   serverState: ServerState;
   receivedNotificationLogs: ReceivedNotificationLog[];
   refresh: () => Promise<void>;
@@ -128,7 +126,7 @@ function preferenceWithDefaults(channelId: string, defaults: GlobalAlertDefaults
 }
 
 function inferGlobalAlertDefaults(preferences: AlertPreference[]): GlobalAlertDefaults | null {
-  const candidates = preferences.filter((preference) => !preference.channelId.startsWith('demo-'));
+  const candidates = preferences;
   if (candidates.length < 2) return null;
   const groups = new Map<string, { count: number; preference: AlertPreference }>();
   for (const preference of candidates) {
@@ -160,7 +158,7 @@ function inferGlobalAlertDefaults(preferences: AlertPreference[]): GlobalAlertDe
 }
 
 function normalizePreferences(value: unknown): AlertPreference[] {
-  if (!Array.isArray(value)) return demoPreferences;
+  if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
     if (!item || typeof item !== 'object' || typeof (item as AlertPreference).channelId !== 'string') return [];
     const stored = item as Partial<AlertPreference> & { channelId: string };
@@ -187,14 +185,13 @@ function trackedPreferences(preferences: AlertPreference[], streamers: Streamer[
 }
 
 export function AlertStoreProvider({ children }: { children: React.ReactNode }) {
-  const [streamers, setStreamers] = useState(demoStreamers);
+  const [streamers, setStreamers] = useState<Streamer[]>([]);
   const [categories, setCategories] = useState<LiveCategory[]>(() => mergeCategoryCatalog());
-  const [preferences, setPreferences] = useState<AlertPreference[]>(demoPreferences);
+  const [preferences, setPreferences] = useState<AlertPreference[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [globalDefaults, setGlobalDefaults] = useState<GlobalAlertDefaults | null>(null);
   const [globalDefaultsHydrated, setGlobalDefaultsHydrated] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [usingDemoData, setUsingDemoData] = useState(true);
   const [serverState, setServerState] = useState<ServerState>('connecting');
   const [receivedNotificationLogs, setReceivedNotificationLogs] = useState<ReceivedNotificationLog[]>([]);
   const [notificationState, setNotificationState] = useState<PermissionState>('idle');
@@ -327,18 +324,8 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
     try {
       const streamerResult = await api.streamers(controller.signal);
       setStreamers(streamerResult.data);
-      setPreferences((current) => current.length > 0 && current.every(
-        (preference) => preference.channelId.startsWith('demo-'),
-      )
-        ? streamerResult.data.slice(0, 2).map((streamer) => preferenceWithDefaults(
-            streamer.channelId,
-            globalDefaultsRef.current,
-          ))
-        : current);
-      setUsingDemoData(false);
       setServerState('connected');
     } catch {
-      setUsingDemoData(true);
       setServerState('unavailable');
     } finally {
       setLoading(false);
@@ -346,10 +333,10 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   useEffect(() => {
-    if (!globalDefaultsHydrated) return;
+    if (!hydrated || !globalDefaultsHydrated) return;
     const timer = setTimeout(() => void refresh(), 0);
     return () => clearTimeout(timer);
-  }, [globalDefaultsHydrated, refresh]);
+  }, [globalDefaultsHydrated, hydrated, refresh]);
 
   const update = useCallback((channelId: string, transform: (item: AlertPreference) => AlertPreference) => {
     setPreferences((current) => current.map((item) => item.channelId === channelId
@@ -417,7 +404,6 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
     categories,
     preferences,
     loading,
-    usingDemoData,
     serverState,
     receivedNotificationLogs,
     refresh,
@@ -470,9 +456,7 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
     importAccountData(channelIds, importedPreferences) {
       const normalizedImported = normalizePreferences(importedPreferences);
       setPreferences((current) => {
-        const merged = new Map(current
-          .filter((item) => !item.channelId.startsWith('demo-'))
-          .map((item) => [item.channelId, item]));
+        const merged = new Map(current.map((item) => [item.channelId, item]));
         for (const channelId of channelIds) {
           if (!merged.has(channelId)) {
             merged.set(channelId, preferenceWithDefaults(channelId, globalDefaultsRef.current));
@@ -522,7 +506,7 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
       setReceivedNotificationLogs([]);
       await clearReceivedNotificationLogs();
     },
-  }), [categories, connectNotifications, loading, notificationState, preferences, receivedNotificationLogs, refresh, searchCategories, serverState, showNotificationTestPrompt, streamers, testNotifications, update, usingDemoData]);
+  }), [categories, connectNotifications, loading, notificationState, preferences, receivedNotificationLogs, refresh, searchCategories, serverState, showNotificationTestPrompt, streamers, testNotifications, update]);
 
   return <AlertStoreContext.Provider value={value}>{children}</AlertStoreContext.Provider>;
 }
