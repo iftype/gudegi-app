@@ -34,7 +34,6 @@
     },
     "plugins": [
       "expo-router",
-      "expo-dev-client",
       [
         "expo-splash-screen",
         {
@@ -44,8 +43,7 @@
         }
       ],
       "expo-notifications",
-      "@bacons/apple-targets",
-      "./plugins/with-production-info-plist"
+      "@bacons/apple-targets"
     ],
     "experiments": {
       "typedRoutes": true,
