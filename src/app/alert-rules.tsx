@@ -21,7 +21,6 @@ import type { AlertRules, CategoryFilter, LiveCategory } from '@/types';
 type EditorPane = 'main' | 'categories' | 'keywords';
 
 const ruleChoices = [
-  { key: 'liveStarted' as const, label: '방송 시작', description: '방송이 시작되면 알려드려요.' },
   { key: 'titleChanged' as const, label: '방제 변경', description: '방송 제목이 바뀌면 알려드려요.' },
   { key: 'categoryChanged' as const, label: '카테고리 변경', description: '누르면 감지할 카테고리를 설정해요.' },
 ];
@@ -43,7 +42,7 @@ export default function AlertRulesSheet() {
   const initialPreference = preference ?? (isAll ? store.preferences[0] : undefined);
   const [activePane, setActivePane] = useState<EditorPane>('main');
   const [rules, setRules] = useState<AlertRules>(() => ({
-    liveStarted: initialPreference?.liveStarted ?? true,
+    liveStarted: false,
     titleChanged: initialPreference?.titleChanged ?? true,
     categoryChanged: initialPreference?.categoryChanged ?? true,
     keywords: [...(initialPreference?.keywords ?? [])],
@@ -141,49 +140,17 @@ export default function AlertRulesSheet() {
             <View style={styles.choiceList}>
               {ruleChoices.map((choice) => {
                 const selected = rules[choice.key];
-                const configurable = choice.key !== 'liveStarted';
-                const icon = choice.key === 'liveStarted'
-                  ? { ios: 'bell.badge' as const, android: 'notifications_active' as const }
-                  : choice.key === 'titleChanged'
-                    ? { ios: 'textformat' as const, android: 'title' as const }
-                    : { ios: 'tag' as const, android: 'sell' as const };
+                const icon = choice.key === 'titleChanged'
+                  ? { ios: 'textformat' as const, android: 'title' as const }
+                  : { ios: 'tag' as const, android: 'sell' as const };
                 const description = choice.key === 'titleChanged'
                   ? rules.keywords.length
                     ? `${rules.keywords.length}개 키워드 등록됨`
                     : '누르면 방제 키워드를 설정해요.'
-                  : choice.key === 'categoryChanged'
-                    ? categoryFilter.categoryKeys.length
-                      ? `${categoryFilter.categoryKeys.length}개 카테고리만 알림`
-                      : '모든 카테고리 변경을 알려드려요.'
-                    : choice.description;
+                  : categoryFilter.categoryKeys.length
+                    ? `${categoryFilter.categoryKeys.length}개 카테고리만 알림`
+                    : '모든 카테고리 변경을 알려드려요.';
                 const toggle = () => setRules((current) => ({ ...current, [choice.key]: !current[choice.key] }));
-                if (!configurable) {
-                  return (
-                    <Pressable
-                      key={choice.key}
-                      accessibilityLabel={`${choice.label} ${selected ? '끄기' : '켜기'}`}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: selected }}
-                      onPress={toggle}
-                      style={({ pressed }) => [styles.choice, selected && styles.choiceSelected, pressed && styles.choicePressed]}>
-                      <View style={styles.choiceBody}>
-                        <View style={[styles.choiceIcon, selected && styles.choiceIconSelected]}>
-                          <SymbolView name={icon} size={16} tintColor={selected ? palette.accent : palette.textSecondary} />
-                        </View>
-                        <View style={styles.choiceText}>
-                          <Text style={styles.choiceTitle}>{choice.label}</Text>
-                          <Text style={styles.choiceDescription}>{description}</Text>
-                        </View>
-                      </View>
-                      <View style={styles.choiceDivider} />
-                      <View style={styles.checkButton}>
-                        <View style={[styles.check, selected && styles.checkSelected]}>
-                          {selected && <SymbolView name={{ ios: 'checkmark', android: 'check' }} size={14} tintColor={palette.accentText} />}
-                        </View>
-                      </View>
-                    </Pressable>
-                  );
-                }
                 return (
                   <View key={choice.key} style={styles.splitChoice}>
                     <Pressable

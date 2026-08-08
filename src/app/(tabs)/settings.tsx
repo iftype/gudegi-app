@@ -36,10 +36,17 @@ export default function SettingsScreen() {
   }
 
   function resetAlertList() {
-    if (!store.preferences.length) return;
-    Alert.alert('알림 목록 초기화', '저장한 스트리머와 개인 알림 설정을 모두 삭제할까요?', [
+    if (!store.preferences.length && !store.followedCategoryKeys.length) return;
+    Alert.alert('알림 목록 초기화', '저장한 스트리머와 카테고리 팔로우, 개인 알림 설정을 모두 삭제할까요?', [
       { text: '취소', style: 'cancel' },
-      { text: '초기화', style: 'destructive', onPress: store.clearChannels },
+      {
+        text: '초기화',
+        style: 'destructive',
+        onPress: () => {
+          store.clearChannels();
+          store.clearCategoryFollows();
+        },
+      },
     ]);
   }
 
@@ -74,7 +81,7 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.cardTitleWrap}>
               <Text style={styles.cardTitle}>기기 알림</Text>
-              <Text style={styles.cardDescription}>방송 시작과 변경 알림을 받아보세요.</Text>
+              <Text style={styles.cardDescription}>방제와 카테고리 변경 알림을 받아보세요.</Text>
             </View>
           </View>
           <Pressable
@@ -134,15 +141,15 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.cardTitleWrap}>
               <Text style={styles.cardTitle}>알림 목록 초기화</Text>
-              <Text style={styles.cardDescription}>저장한 스트리머와 개인 알림 설정을 삭제합니다.</Text>
+              <Text style={styles.cardDescription}>저장한 스트리머와 카테고리 팔로우, 개인 알림 설정을 삭제합니다.</Text>
             </View>
           </View>
           <Pressable
-            disabled={!store.preferences.length}
+            disabled={!store.preferences.length && !store.followedCategoryKeys.length}
             onPress={resetAlertList}
             style={({ pressed }) => [
               styles.resetButton,
-              !store.preferences.length && styles.disabled,
+              !store.preferences.length && !store.followedCategoryKeys.length && styles.disabled,
               pressed && styles.pressed,
             ]}>
             <Text style={styles.resetButtonText}>초기화</Text>

@@ -25,7 +25,40 @@ export async function apiRequest<T>(
 }
 
 export const api = {
-  streamers: (signal?: AbortSignal) => apiRequest<{ data: Streamer[] }>('/streamers', { signal }),
+  streamers: (input: {
+    page?: number;
+    pageSize?: number;
+    query?: string;
+    signal?: AbortSignal;
+  } = {}) => {
+    const params = new URLSearchParams({
+      page: String(input.page ?? 1),
+      pageSize: String(input.pageSize ?? 40),
+    });
+    if (input.query?.trim()) params.set('query', input.query.trim());
+    return apiRequest<{
+      data: Streamer[];
+      pagination: {
+        page: number;
+        pageSize: number;
+        total: number;
+        totalPages: number;
+        hasNextPage: boolean;
+      };
+    }>(`/streamers?${params}`, { signal: input.signal });
+  },
+  streamersByIds: async (channelIds: string[], signal?: AbortSignal) => {
+    if (!channelIds.length) return { data: [] as Streamer[] };
+    const chunks = Array.from(
+      { length: Math.ceil(channelIds.length / 100) },
+      (_, index) => channelIds.slice(index * 100, (index + 1) * 100),
+    );
+    const pages = await Promise.all(chunks.map((chunk) => apiRequest<{ data: Streamer[] }>(
+      `/streamers?page=1&pageSize=100&channelIds=${encodeURIComponent(chunk.join(','))}`,
+      { signal },
+    )));
+    return { data: pages.flatMap((page) => page.data) };
+  },
   searchCategories: (query: string, signal?: AbortSignal) => apiRequest<{
     data: LiveCategory[];
     syncedAt: number;

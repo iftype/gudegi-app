@@ -62,7 +62,7 @@ export function AlertRow({
 
       <Pressable
         accessibilityLabel={`${streamer.channelName} 알림 필터 설정`}
-        accessibilityHint="방송 시작, 방제와 카테고리 변경 알림을 설정합니다"
+        accessibilityHint="방제와 카테고리 변경 알림을 설정합니다"
         onPress={() => openSheet(streamer.channelId)}
         style={({ pressed }) => [styles.main, pressed && styles.mainPressed]}>
         <View style={styles.identity}>

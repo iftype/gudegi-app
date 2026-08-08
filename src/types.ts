@@ -10,6 +10,8 @@ export type Streamer = {
   currentTitle?: string | null;
   currentCategory?: string | null;
   activeBroadcastStartedAt?: number | null;
+  concurrentUserCount?: number;
+  catalogSource?: string | null;
 };
 
 export type CategoryFilter = {

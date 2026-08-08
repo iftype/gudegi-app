@@ -27,7 +27,7 @@ function serverPreferences(preferences: AlertPreference[]) {
     .filter((preference) => REAL_CHANNEL_ID.test(preference.channelId))
     .map((preference) => ({
       channelId: preference.channelId,
-      liveStarted: preference.enabled && preference.liveStarted,
+      liveStarted: false,
       categoryChanged: preference.enabled && preference.categoryChanged,
       titleChanged: preference.enabled && preference.titleChanged,
       keywords: preference.enabled ? preference.keywords : [],
@@ -39,6 +39,7 @@ export async function connectNativePush(
   expoPushToken: string,
   platform: NativePlatform,
   preferences: AlertPreference[],
+  categoryKeys: string[] = [],
 ) {
   const result = await apiRequest<{ data: { id: string } }>('/push/native-subscriptions', {
     method: 'POST',
@@ -50,6 +51,7 @@ export async function connectNativePush(
   });
   await AsyncStorage.setItem(SUBSCRIPTION_ID_KEY, result.data.id);
   await saveNativePushPreferences(result.data.id, preferences);
+  await saveNativePushCategoryFollows(result.data.id, categoryKeys);
   return result.data.id;
 }
 
@@ -67,11 +69,29 @@ export async function syncNativePushPreferences(preferences: AlertPreference[]) 
   }
 }
 
+export async function syncNativePushCategoryFollows(categoryKeys: string[]) {
+  const subscriptionId = await AsyncStorage.getItem(SUBSCRIPTION_ID_KEY);
+  if (!subscriptionId) return false;
+  try {
+    await saveNativePushCategoryFollows(subscriptionId, categoryKeys);
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message === 'api_404') {
+      await AsyncStorage.removeItem(SUBSCRIPTION_ID_KEY);
+    }
+    throw error;
+  }
+}
+
 export async function syncAppPreferences(preferences: AlertPreference[]) {
   const id = await getInstallationId();
   await apiRequest(`/app/installations/${id}/preferences`, {
     method: 'PUT',
-    body: JSON.stringify({ channels: preferences.filter((item) => REAL_CHANNEL_ID.test(item.channelId)) }),
+    body: JSON.stringify({
+      channels: preferences
+        .filter((item) => REAL_CHANNEL_ID.test(item.channelId))
+        .map((item) => ({ ...item, liveStarted: false })),
+    }),
   });
 }
 
@@ -99,5 +119,15 @@ async function saveNativePushPreferences(
   await apiRequest(`/push/native-subscriptions/${subscriptionId}/preferences`, {
     method: 'PUT',
     body: JSON.stringify({ channels: serverPreferences(preferences) }),
+  });
+}
+
+async function saveNativePushCategoryFollows(
+  subscriptionId: string,
+  categoryKeys: string[],
+) {
+  await apiRequest(`/push/native-subscriptions/${subscriptionId}/category-follows`, {
+    method: 'PUT',
+    body: JSON.stringify({ categoryKeys: [...new Set(categoryKeys)] }),
   });
 }

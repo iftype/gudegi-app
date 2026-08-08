@@ -26,6 +26,13 @@ export default function TabsLayout() {
           md={{ default: 'group', selected: 'group' }}
         />
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="categories">
+        <NativeTabs.Trigger.Label>카테고리</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'tag', selected: 'tag.fill' }}
+          md={{ default: 'sell', selected: 'sell' }}
+        />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Label>설정</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon

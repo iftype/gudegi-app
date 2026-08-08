@@ -11,6 +11,7 @@ import {
   loadAppPreferences,
   sendNativePushTest,
   syncAppPreferences,
+  syncNativePushCategoryFollows,
   syncNativePushPreferences,
 } from '@/notifications/native-push';
 import { registerForNotifications } from '@/notifications/register';
@@ -25,6 +26,7 @@ import type { AlertPreference, AlertRules, CategoryFilter, LiveCategory, Receive
 
 const STORAGE_KEY = 'gudegi-native-alert-preferences-v1';
 const CATEGORY_CACHE_KEY = 'gudegi-native-category-catalog-v1';
+const CATEGORY_FOLLOWS_KEY = 'gudegi-native-category-follows-v1';
 const GLOBAL_DEFAULTS_KEY = 'gudegi-native-global-alert-defaults-v1';
 const PUSH_TEST_COMPLETED_KEY = `gudegi-native-push-test-completed-v2:${apiBaseUrl}`;
 
@@ -34,16 +36,20 @@ export type ServerState = 'connecting' | 'connected' | 'unavailable';
 type AlertStore = {
   streamers: Streamer[];
   categories: LiveCategory[];
+  followedCategoryKeys: string[];
   preferences: AlertPreference[];
   loading: boolean;
   serverState: ServerState;
   receivedNotificationLogs: ReceivedNotificationLog[];
   refresh: () => Promise<void>;
   searchCategories: (query: string) => Promise<void>;
+  toggleCategoryFollow: (categoryKey: string) => void;
+  clearCategoryFollows: () => void;
   toggleEnabled: (channelId: string) => void;
   updateRules: (channelId: string, value: AlertRules) => void;
   updateCategoryFilter: (channelId: string, value: CategoryFilter) => void;
   addChannel: (channelId: string) => void;
+  rememberStreamers: (streamers: Streamer[]) => void;
   removeChannel: (channelId: string) => void;
   setAllEnabled: (enabled: boolean) => void;
   setChannelsSelected: (channelIds: string[], selected: boolean) => void;
@@ -66,7 +72,7 @@ function defaultPreference(channelId: string): AlertPreference {
   return {
     channelId,
     enabled: true,
-    liveStarted: true,
+    liveStarted: false,
     categoryChanged: true,
     titleChanged: true,
     keywords: [],
@@ -93,7 +99,7 @@ function normalizeGlobalAlertDefaults(value: unknown): GlobalAlertDefaults | nul
     ? stored.categoryFilter.categoryKeys.filter((key): key is string => typeof key === 'string')
     : [];
   return {
-    liveStarted: typeof stored.liveStarted === 'boolean' ? stored.liveStarted : fallback.liveStarted,
+    liveStarted: false,
     categoryChanged: typeof stored.categoryChanged === 'boolean' ? stored.categoryChanged : fallback.categoryChanged,
     titleChanged: typeof stored.titleChanged === 'boolean' ? stored.titleChanged : fallback.titleChanged,
     keywords: Array.isArray(stored.keywords)
@@ -118,8 +124,7 @@ function preferenceWithDefaults(channelId: string, defaults: GlobalAlertDefaults
       allCategories: defaults.categoryFilter.allCategories,
       categoryKeys: [...defaults.categoryFilter.categoryKeys],
     },
-    enabled: defaults.liveStarted
-      || defaults.categoryChanged
+    enabled: defaults.categoryChanged
       || defaults.titleChanged
       || defaults.keywords.length > 0,
   };
@@ -131,7 +136,6 @@ function inferGlobalAlertDefaults(preferences: AlertPreference[]): GlobalAlertDe
   const groups = new Map<string, { count: number; preference: AlertPreference }>();
   for (const preference of candidates) {
     const key = JSON.stringify({
-      liveStarted: preference.liveStarted,
       categoryChanged: preference.categoryChanged,
       titleChanged: preference.titleChanged,
       keywords: preference.keywords,
@@ -146,7 +150,7 @@ function inferGlobalAlertDefaults(preferences: AlertPreference[]): GlobalAlertDe
   if (!largest || largest.count < 2 || largest.count <= candidates.length / 2) return null;
   const first = largest.preference;
   return {
-    liveStarted: first.liveStarted,
+    liveStarted: false,
     categoryChanged: first.categoryChanged,
     titleChanged: first.titleChanged,
     keywords: [...first.keywords],
@@ -166,6 +170,13 @@ function normalizePreferences(value: unknown): AlertPreference[] {
     return [{
       ...fallback,
       ...stored,
+      liveStarted: false,
+      enabled: Boolean(
+        (stored.enabled ?? fallback.enabled)
+        && ((stored.categoryChanged ?? fallback.categoryChanged)
+          || (stored.titleChanged ?? fallback.titleChanged)
+          || (Array.isArray(stored.keywords) && stored.keywords.length > 0))
+      ),
       keywords: Array.isArray(stored.keywords) ? stored.keywords : [],
       categoryFilter: stored.categoryFilter && Array.isArray(stored.categoryFilter.categoryKeys)
         ? {
@@ -177,16 +188,15 @@ function normalizePreferences(value: unknown): AlertPreference[] {
   });
 }
 
-function trackedPreferences(preferences: AlertPreference[], streamers: Streamer[]) {
-  const trackedChannelIds = new Set(
-    streamers.filter((streamer) => streamer.enabled).map((streamer) => streamer.channelId),
-  );
-  return preferences.filter((preference) => trackedChannelIds.has(preference.channelId));
+function trackedPreferences(preferences: AlertPreference[]) {
+  return preferences;
 }
 
 export function AlertStoreProvider({ children }: { children: React.ReactNode }) {
   const [streamers, setStreamers] = useState<Streamer[]>([]);
   const [categories, setCategories] = useState<LiveCategory[]>(() => mergeCategoryCatalog());
+  const [followedCategoryKeys, setFollowedCategoryKeys] = useState<string[]>([]);
+  const [categoryFollowsHydrated, setCategoryFollowsHydrated] = useState(false);
   const [preferences, setPreferences] = useState<AlertPreference[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [globalDefaults, setGlobalDefaults] = useState<GlobalAlertDefaults | null>(null);
@@ -288,6 +298,20 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
       .catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    AsyncStorage.getItem(CATEGORY_FOLLOWS_KEY)
+      .then((stored) => {
+        if (!stored) return;
+        const parsed = JSON.parse(stored) as unknown;
+        if (!Array.isArray(parsed)) return;
+        setFollowedCategoryKeys([...new Set(
+          parsed.filter((key): key is string => typeof key === 'string'),
+        )].slice(0, 30));
+      })
+      .catch(() => undefined)
+      .finally(() => setCategoryFollowsHydrated(true));
+  }, []);
+
   const searchCategories = useCallback(async (query: string) => {
     const normalized = query.normalize('NFKC').trim().replace(/\s+/g, ' ');
     const cacheKey = normalized.toLocaleLowerCase('ko-KR').replace(/\s+/g, '');
@@ -310,7 +334,7 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
     if (!hydrated) return;
     void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
     if (serverState !== 'connected') return;
-    const syncedPreferences = trackedPreferences(preferences, streamers);
+    const syncedPreferences = trackedPreferences(preferences);
     const timer = setTimeout(() => {
       void syncNativePushPreferences(syncedPreferences).catch(() => undefined);
       void syncAppPreferences(syncedPreferences).catch(() => undefined);
@@ -318,11 +342,24 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
     return () => clearTimeout(timer);
   }, [hydrated, preferences, serverState, streamers]);
 
+  useEffect(() => {
+    if (!categoryFollowsHydrated) return;
+    void AsyncStorage.setItem(CATEGORY_FOLLOWS_KEY, JSON.stringify(followedCategoryKeys));
+    if (serverState !== 'connected') return;
+    const timer = setTimeout(() => {
+      void syncNativePushCategoryFollows(followedCategoryKeys).catch(() => undefined);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [categoryFollowsHydrated, followedCategoryKeys, serverState]);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     const controller = new AbortController();
     try {
-      const streamerResult = await api.streamers(controller.signal);
+      const streamerResult = await api.streamersByIds(
+        preferences.map((preference) => preference.channelId),
+        controller.signal,
+      );
       setStreamers(streamerResult.data);
       setServerState('connected');
     } catch {
@@ -330,7 +367,7 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [preferences]);
 
   useEffect(() => {
     if (!hydrated || !globalDefaultsHydrated) return;
@@ -342,6 +379,14 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
     setPreferences((current) => current.map((item) => item.channelId === channelId
       ? transform(item)
       : item));
+  }, []);
+
+  const rememberStreamers = useCallback((nextStreamers: Streamer[]) => {
+    setStreamers((current) => {
+      const byChannel = new Map(current.map((streamer) => [streamer.channelId, streamer]));
+      for (const streamer of nextStreamers) byChannel.set(streamer.channelId, streamer);
+      return [...byChannel.values()];
+    });
   }, []);
 
   const connectNotifications = useCallback(async () => {
@@ -362,13 +407,14 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
       await connectNativePush(
         result.token,
         Platform.OS === 'android' ? 'android' : 'ios',
-        trackedPreferences(preferences, streamers),
+        trackedPreferences(preferences),
+        followedCategoryKeys,
       );
       setNotificationState('connected');
     } catch {
       setNotificationState('failed');
     }
-  }, [preferences, streamers]);
+  }, [followedCategoryKeys, preferences]);
 
   const testNotifications = useCallback(async () => {
     setNotificationState('working');
@@ -388,7 +434,8 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
       await connectNativePush(
         result.token,
         Platform.OS === 'android' ? 'android' : 'ios',
-        trackedPreferences(preferences, streamers),
+        trackedPreferences(preferences),
+        followedCategoryKeys,
       );
       await sendNativePushTest();
       setShowNotificationTestPrompt(false);
@@ -397,17 +444,26 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
     } catch {
       setNotificationState('failed');
     }
-  }, [preferences, streamers]);
+  }, [followedCategoryKeys, preferences]);
 
   const value = useMemo<AlertStore>(() => ({
     streamers,
     categories,
+    followedCategoryKeys,
     preferences,
     loading,
     serverState,
     receivedNotificationLogs,
     refresh,
     searchCategories,
+    toggleCategoryFollow(categoryKey) {
+      setFollowedCategoryKeys((current) => current.includes(categoryKey)
+        ? current.filter((key) => key !== categoryKey)
+        : [...current, categoryKey].slice(0, 30));
+    },
+    clearCategoryFollows() {
+      setFollowedCategoryKeys([]);
+    },
     toggleEnabled(channelId) {
       update(channelId, (item) => ({ ...item, enabled: !item.enabled }));
     },
@@ -415,7 +471,8 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
       update(channelId, (item) => ({
         ...item,
         ...rules,
-        enabled: rules.liveStarted || rules.categoryChanged || rules.titleChanged || rules.keywords.length > 0,
+        liveStarted: false,
+        enabled: rules.categoryChanged || rules.titleChanged || rules.keywords.length > 0,
       }));
     },
     updateCategoryFilter(channelId, categoryFilter) {
@@ -426,6 +483,7 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
         ? current
         : [...current, preferenceWithDefaults(channelId, globalDefaultsRef.current)]);
     },
+    rememberStreamers,
     removeChannel(channelId) {
       setPreferences((current) => current.filter((item) => item.channelId !== channelId));
     },
@@ -470,6 +528,7 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
       const nextDefaults = {
         ...(globalDefaultsRef.current ?? defaultGlobalAlertDefaults()),
         ...rules,
+        liveStarted: false,
         keywords: [...rules.keywords],
       };
       globalDefaultsRef.current = nextDefaults;
@@ -477,7 +536,8 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
       setPreferences((current) => current.map((item) => ({
         ...item,
         ...rules,
-        enabled: rules.liveStarted || rules.categoryChanged || rules.titleChanged || rules.keywords.length > 0,
+        liveStarted: false,
+        enabled: rules.categoryChanged || rules.titleChanged || rules.keywords.length > 0,
       })));
     },
     updateAllCategoryFilter(categoryFilter) {
@@ -506,7 +566,7 @@ export function AlertStoreProvider({ children }: { children: React.ReactNode }) 
       setReceivedNotificationLogs([]);
       await clearReceivedNotificationLogs();
     },
-  }), [categories, connectNotifications, loading, notificationState, preferences, receivedNotificationLogs, refresh, searchCategories, serverState, showNotificationTestPrompt, streamers, testNotifications, update]);
+  }), [categories, connectNotifications, followedCategoryKeys, loading, notificationState, preferences, receivedNotificationLogs, refresh, rememberStreamers, searchCategories, serverState, showNotificationTestPrompt, streamers, testNotifications, update]);
 
   return <AlertStoreContext.Provider value={value}>{children}</AlertStoreContext.Provider>;
 }
