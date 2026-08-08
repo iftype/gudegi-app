@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-import type { LiveCategory, Streamer, StreamerAlertEvent } from '@/types';
+import type { CategoryFollowAlertEvent, LiveCategory, Streamer, StreamerAlertEvent } from '@/types';
 
 const fallbackHost = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
 export const apiBaseUrl = (
@@ -63,6 +63,9 @@ export const api = {
     data: LiveCategory[];
     syncedAt: number;
   }>(`/categories/search?query=${encodeURIComponent(query)}`, { signal }),
+  categoryAlertEvents: (categoryKey: string, signal?: AbortSignal) => apiRequest<{
+    data: CategoryFollowAlertEvent[];
+  }>(`/categories/${encodeURIComponent(categoryKey)}/alert-events`, { signal }),
   streamerAlertEvents: (channelId: string, signal?: AbortSignal) => apiRequest<{
     data: StreamerAlertEvent[];
   }>(`/streamers/${encodeURIComponent(channelId)}/alert-events`, { signal }),

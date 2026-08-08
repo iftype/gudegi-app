@@ -19,18 +19,18 @@ export default function TabsLayout() {
           md={{ default: 'notifications_none', selected: 'notifications' }}
         />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="streamers">
-        <NativeTabs.Trigger.Label>스트리머</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          sf={{ default: 'person.2', selected: 'person.2.fill' }}
-          md={{ default: 'group', selected: 'group' }}
-        />
-      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="categories">
         <NativeTabs.Trigger.Label>카테고리</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf={{ default: 'tag', selected: 'tag.fill' }}
           md={{ default: 'sell', selected: 'sell' }}
+        />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="streamers">
+        <NativeTabs.Trigger.Label>스트리머</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'person.2', selected: 'person.2.fill' }}
+          md={{ default: 'group', selected: 'group' }}
         />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">

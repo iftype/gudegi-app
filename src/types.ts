@@ -53,6 +53,18 @@ export type StreamerAlertEvent = {
   category: string | null;
 };
 
+export type CategoryFollowAlertEvent = {
+  id: string;
+  categoryKey: string;
+  categoryValue: string;
+  channelId: string;
+  channelName: string;
+  channelImageUrl: string | null;
+  broadcastTitle: string;
+  concurrentUserCount: number;
+  occurredAt: number;
+};
+
 export type ReceivedNotificationLog = {
   id: string;
   title: string;

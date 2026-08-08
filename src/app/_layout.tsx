@@ -70,6 +70,32 @@ export default function RootLayout() {
                 contentStyle: { backgroundColor: palette.surface },
               }}
             />
+            <Stack.Screen
+              name="category-picker"
+              options={{
+                headerShown: false,
+                presentation: 'formSheet',
+                sheetAllowedDetents: [0.82],
+                sheetInitialDetentIndex: 0,
+                sheetExpandsWhenScrolledToEdge: false,
+                sheetGrabberVisible: true,
+                sheetCornerRadius: 24,
+                contentStyle: { backgroundColor: palette.surface },
+              }}
+            />
+            <Stack.Screen
+              name="category-log"
+              options={{
+                headerShown: false,
+                presentation: 'formSheet',
+                sheetAllowedDetents: [0.72],
+                sheetInitialDetentIndex: 0,
+                sheetExpandsWhenScrolledToEdge: false,
+                sheetGrabberVisible: true,
+                sheetCornerRadius: 24,
+                contentStyle: { backgroundColor: palette.surface },
+              }}
+            />
           </Stack>
         </AlertStoreProvider>
       </ThemeProvider>

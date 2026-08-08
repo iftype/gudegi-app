@@ -1,21 +1,22 @@
 import { Image } from 'expo-image';
+import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   Alert,
   FlatList,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/screen-header';
 import { palette, radius } from '@/constants/theme';
-import { normalizedSearchText } from '@/data/category-catalog';
 import { useAlertStore } from '@/features/alerts/alert-store';
+import { useLocalRefresh } from '@/hooks/use-local-refresh';
 import type { LiveCategory } from '@/types';
 
 const MAX_CATEGORY_FOLLOWS = 30;
@@ -26,65 +27,52 @@ function categoryTypeLabel(type: string) {
   return '기타';
 }
 
+function fallbackCategory(categoryKey: string): LiveCategory {
+  const separator = categoryKey.indexOf(':');
+  return {
+    categoryKey,
+    categoryType: separator > 0 ? categoryKey.slice(0, separator) : 'ETC',
+    categoryId: separator > 0 ? categoryKey.slice(separator + 1) : categoryKey,
+    categoryValue: categoryKey,
+    posterImageUrl: null,
+    openLiveCount: 0,
+    concurrentUserCount: 0,
+    syncedAt: 0,
+  };
+}
+
 export default function CategoriesScreen() {
   const store = useAlertStore();
-  const [query, setQuery] = useState('');
-  const normalizedQuery = normalizedSearchText(query);
-  const followed = useMemo(
-    () => new Set(store.followedCategoryKeys),
-    [store.followedCategoryKeys],
-  );
+  const tabRefresh = useLocalRefresh(store.refresh);
   const categoryByKey = useMemo(
     () => new Map(store.categories.map((category) => [category.categoryKey, category])),
     [store.categories],
   );
   const selectedCategories = useMemo(
-    () => store.followedCategoryKeys.map((key) => categoryByKey.get(key) ?? {
-      categoryKey: key,
-      categoryType: key.split(':', 1)[0] ?? 'ETC',
-      categoryId: key.slice(key.indexOf(':') + 1),
-      categoryValue: key,
-      posterImageUrl: null,
-      openLiveCount: 0,
-      concurrentUserCount: 0,
-      syncedAt: 0,
-    }),
+    () => store.followedCategoryKeys.map(
+      (key) => categoryByKey.get(key) ?? fallbackCategory(key),
+    ),
     [categoryByKey, store.followedCategoryKeys],
   );
-  const results = useMemo(() => {
-    if (!normalizedQuery) return [];
-    return store.categories
-      .filter((category) => normalizedSearchText(category.categoryValue).includes(normalizedQuery))
-      .sort((left, right) => (
-        Number(followed.has(right.categoryKey)) - Number(followed.has(left.categoryKey))
-        || right.concurrentUserCount - left.concurrentUserCount
-        || left.categoryValue.localeCompare(right.categoryValue, 'ko-KR')
-      ))
-      .slice(0, 40);
-  }, [followed, normalizedQuery, store.categories]);
 
-  useEffect(() => {
-    if (!query.trim()) return;
-    const timer = setTimeout(() => void store.searchCategories(query), 350);
-    return () => clearTimeout(timer);
-  }, [query, store]);
-
-  function toggle(category: LiveCategory) {
-    if (!followed.has(category.categoryKey) && followed.size >= MAX_CATEGORY_FOLLOWS) {
-      Alert.alert('최대 30개까지 추가할 수 있어요');
-      return;
-    }
-    store.toggleCategoryFollow(category.categoryKey);
+  function remove(category: LiveCategory) {
+    Alert.alert(
+      '카테고리 팔로우 해제',
+      `${category.categoryValue} 알림을 그만 받을까요?`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '해제',
+          style: 'destructive',
+          onPress: () => store.toggleCategoryFollow(category.categoryKey),
+        },
+      ],
+    );
   }
 
   function renderCategory({ item }: { item: LiveCategory }) {
-    const selected = followed.has(item.categoryKey);
     return (
-      <Pressable
-        accessibilityLabel={`${item.categoryValue} ${selected ? '팔로우 해제' : '팔로우'}`}
-        accessibilityRole="button"
-        onPress={() => toggle(item)}
-        style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+      <View style={styles.row}>
         {item.posterImageUrl ? (
           <Image source={item.posterImageUrl} style={styles.poster} contentFit="cover" />
         ) : (
@@ -96,42 +84,73 @@ export default function CategoriesScreen() {
             />
           </View>
         )}
-        <View style={styles.rowText}>
+        <Pressable
+          accessibilityLabel={`${item.categoryValue} 알림 기록`}
+          onPress={() => router.navigate({
+            pathname: '/category-log',
+            params: { categoryKey: item.categoryKey, categoryName: item.categoryValue },
+          })}
+          style={({ pressed }) => [styles.rowText, pressed && styles.pressed]}>
           <Text numberOfLines={1} style={styles.categoryName}>{item.categoryValue}</Text>
           <Text style={styles.categoryType}>{categoryTypeLabel(item.categoryType)}</Text>
-        </View>
-        <View style={[styles.followButton, selected && styles.followButtonSelected]}>
+        </Pressable>
+        <Pressable
+          accessibilityLabel={`${item.categoryValue} 알림 기록`}
+          onPress={() => router.navigate({
+            pathname: '/category-log',
+            params: { categoryKey: item.categoryKey, categoryName: item.categoryValue },
+          })}
+          style={({ pressed }) => [styles.logButton, pressed && styles.pressed]}>
           <SymbolView
-            name={{ ios: selected ? 'checkmark' : 'plus', android: selected ? 'check' : 'add' }}
-            size={15}
-            tintColor={selected ? palette.accent : palette.textSecondary}
+            name={{ ios: 'clock.arrow.circlepath', android: 'history' }}
+            size={14}
+            tintColor={palette.textSecondary}
           />
-          <Text style={[styles.followText, selected && styles.followTextSelected]}>
-            {selected ? '팔로우 중' : '팔로우'}
-          </Text>
-        </View>
-      </Pressable>
+          <Text style={styles.logText}>LOG</Text>
+        </Pressable>
+        <Pressable
+          accessibilityLabel={`${item.categoryValue} 팔로우 해제`}
+          onPress={() => remove(item)}
+          style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}>
+          <SymbolView
+            name={{ ios: 'xmark', android: 'close' }}
+            size={13}
+            tintColor={palette.textMuted}
+          />
+        </Pressable>
+      </View>
     );
   }
-
-  const data = normalizedQuery ? results : selectedCategories;
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
       <ScreenHeader serverUnavailable={store.serverState === 'unavailable'} />
       <FlatList
-        data={data}
+        data={selectedCategories}
         keyExtractor={(category) => category.categoryKey}
         renderItem={renderCategory}
-        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
+        refreshControl={(
+          <RefreshControl
+            refreshing={tabRefresh.refreshing}
+            onRefresh={tabRefresh.onRefresh}
+            tintColor={palette.accent}
+          />
+        )}
         ListHeaderComponent={(
           <>
             <View style={styles.intro}>
-              <Text style={styles.title}>카테고리 팔로우</Text>
-              <Text style={styles.description}>
-                스트리머를 추가하지 않아도 관심 카테고리를 시작한 방송을 알려드려요.
-              </Text>
+              <View style={styles.introText}>
+                <Text style={styles.title}>카테고리 팔로우</Text>
+                <Text style={styles.description}>관심 카테고리를 시작한 방송을 알려드려요.</Text>
+              </View>
+              <Pressable
+                accessibilityLabel="카테고리 팔로우 추가"
+                onPress={() => router.navigate('/category-picker')}
+                style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
+                <SymbolView name={{ ios: 'plus', android: 'add' }} size={16} tintColor={palette.accentText} />
+                <Text style={styles.addButtonText}>추가</Text>
+              </Pressable>
             </View>
             <View style={styles.policy}>
               <SymbolView
@@ -139,9 +158,8 @@ export default function CategoriesScreen() {
                 size={16}
                 tintColor={palette.accent}
               />
-              <Text style={styles.policyText}>
-                시청자 100명 이상 방송 대상 · 상위 방송 약 1분, 그 외 약 5분 간격
-              </Text>
+              <Text style={styles.policyText}>시청자 100명 이상 방송 대상</Text>
+              <Text style={styles.count}>{selectedCategories.length}/{MAX_CATEGORY_FOLLOWS}</Text>
             </View>
             {store.notificationState !== 'connected' && (
               <Pressable
@@ -154,51 +172,28 @@ export default function CategoriesScreen() {
                 <Text style={styles.notificationAction}>연결</Text>
               </Pressable>
             )}
-            <View style={styles.search}>
-              <SymbolView
-                name={{ ios: 'magnifyingglass', android: 'search' }}
-                size={17}
-                tintColor={palette.textMuted}
-              />
-              <TextInput
-                value={query}
-                onChangeText={setQuery}
-                placeholder="게임이나 카테고리 검색"
-                placeholderTextColor={palette.textMuted}
-                returnKeyType="search"
-                clearButtonMode="while-editing"
-                style={styles.input}
-              />
-            </View>
-            <View style={styles.sectionHeading}>
-              <Text style={styles.sectionTitle}>
-                {normalizedQuery ? '검색 결과' : '팔로우 중'}
-              </Text>
-              <Text style={styles.sectionCount}>
-                {normalizedQuery ? `${results.length}개` : `${selectedCategories.length}/${MAX_CATEGORY_FOLLOWS}`}
-              </Text>
-            </View>
+            {!!selectedCategories.length && (
+              <View style={styles.sectionHeading}>
+                <Text style={styles.sectionTitle}>팔로우 중</Text>
+                <Text style={styles.sectionHint}>LOG에서 시작한 스트리머를 확인할 수 있어요</Text>
+              </View>
+            )}
           </>
         )}
         ListEmptyComponent={(
-          <View style={styles.empty}>
-            <SymbolView
-              name={{ ios: normalizedQuery ? 'magnifyingglass' : 'tag', android: normalizedQuery ? 'search' : 'sell' }}
-              size={25}
-              tintColor={palette.textMuted}
-            />
-            <Text style={styles.emptyTitle}>
-              {normalizedQuery ? '검색 결과가 없어요' : '팔로우한 카테고리가 없어요'}
-            </Text>
-            <Text style={styles.emptyDescription}>
-              {normalizedQuery ? '다른 이름으로 검색해 보세요.' : '위 검색창에서 관심 있는 게임을 찾아보세요.'}
-            </Text>
-          </View>
+          <Pressable
+            accessibilityLabel="첫 카테고리 팔로우 추가"
+            onPress={() => router.navigate('/category-picker')}
+            style={({ pressed }) => [styles.empty, pressed && styles.pressed]}>
+            <View style={styles.emptyIcon}>
+              <SymbolView name={{ ios: 'tag', android: 'sell' }} size={23} tintColor={palette.accent} />
+            </View>
+            <Text style={styles.emptyTitle}>팔로우한 카테고리가 없어요</Text>
+            <Text style={styles.emptyDescription}>눌러서 관심 있는 게임이나 카테고리를 추가해 보세요.</Text>
+          </Pressable>
         )}
-        ListFooterComponent={data.length ? (
-          <Text style={styles.footerNote}>
-            방송이 선택한 카테고리로 새로 진입할 때 한 번만 알려드려요.
-          </Text>
+        ListFooterComponent={selectedCategories.length ? (
+          <Text style={styles.footerNote}>방송이 선택한 카테고리로 새로 진입할 때 한 번만 알려드려요.</Text>
         ) : <View style={styles.footerSpace} />}
       />
     </SafeAreaView>
@@ -208,77 +203,36 @@ export default function CategoriesScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: palette.background },
   content: { padding: 14, paddingBottom: 112 },
-  intro: { marginBottom: 12, paddingHorizontal: 2 },
+  intro: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10, paddingHorizontal: 2 },
+  introText: { flex: 1, minWidth: 0 },
   title: { color: palette.text, fontSize: 30, fontWeight: '900', letterSpacing: -1.3 },
-  description: { marginTop: 5, color: palette.textSecondary, fontSize: 12, lineHeight: 18 },
-  policy: {
-    minHeight: 46,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    backgroundColor: palette.surface,
-    borderRadius: radius.card,
-  },
+  description: { marginTop: 4, color: palette.textSecondary, fontSize: 12, lineHeight: 17 },
+  addButton: { height: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 13, backgroundColor: palette.accent, borderRadius: radius.control },
+  addButtonText: { color: palette.accentText, fontSize: 13, fontWeight: '900' },
+  policy: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 8, paddingHorizontal: 12, backgroundColor: palette.surface, borderRadius: radius.card },
   policyText: { flex: 1, color: palette.textSecondary, fontSize: 11, lineHeight: 16, fontWeight: '600' },
-  notificationCard: {
-    minHeight: 58,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 8,
-    paddingHorizontal: 13,
-    paddingVertical: 10,
-    backgroundColor: palette.surface,
-    borderRadius: radius.card,
-  },
+  count: { color: palette.textSecondary, fontSize: 11, fontWeight: '800' },
+  notificationCard: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8, paddingHorizontal: 13, paddingVertical: 10, backgroundColor: palette.surface, borderRadius: radius.card },
   notificationCopy: { flex: 1 },
   notificationTitle: { color: palette.text, fontSize: 13, fontWeight: '800' },
   notificationDescription: { marginTop: 2, color: palette.textSecondary, fontSize: 10, lineHeight: 14 },
   notificationAction: { color: palette.accent, fontSize: 12, fontWeight: '900' },
-  search: {
-    height: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    paddingHorizontal: 12,
-    backgroundColor: palette.surface,
-    borderRadius: radius.card,
-  },
-  input: { flex: 1, color: palette.text, fontSize: 14 },
-  sectionHeading: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 3,
-  },
+  sectionHeading: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 3 },
   sectionTitle: { color: palette.text, fontSize: 14, fontWeight: '800' },
-  sectionCount: { color: palette.textSecondary, fontSize: 11, fontWeight: '700' },
-  row: {
-    minHeight: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: palette.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: palette.border,
-  },
-  poster: { width: 40, height: 48, backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
-  posterFallback: { width: 40, height: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
-  rowText: { flex: 1, minWidth: 0 },
+  sectionHint: { flex: 1, color: palette.textMuted, fontSize: 10, textAlign: 'right' },
+  row: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 10, paddingVertical: 7, backgroundColor: palette.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
+  poster: { width: 38, height: 46, backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
+  posterFallback: { width: 38, height: 46, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
+  rowText: { flex: 1, minWidth: 0, alignSelf: 'stretch', justifyContent: 'center' },
   categoryName: { color: palette.text, fontSize: 15, fontWeight: '800' },
-  categoryType: { marginTop: 3, color: palette.textSecondary, fontSize: 11 },
-  followButton: { minWidth: 72, height: 34, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 9, backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
-  followButtonSelected: { backgroundColor: palette.surfaceSelected },
-  followText: { color: palette.textSecondary, fontSize: 11, fontWeight: '800' },
-  followTextSelected: { color: palette.accent },
+  categoryType: { marginTop: 2, color: palette.textSecondary, fontSize: 11 },
+  logButton: { height: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 9, backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
+  logText: { color: palette.textSecondary, fontSize: 10, fontWeight: '900', letterSpacing: 0.4 },
+  removeButton: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: radius.control },
   empty: { alignItems: 'center', paddingHorizontal: 24, paddingVertical: 42, backgroundColor: palette.surface, borderRadius: radius.card },
-  emptyTitle: { marginTop: 10, color: palette.text, fontSize: 14, fontWeight: '800' },
-  emptyDescription: { marginTop: 4, color: palette.textSecondary, fontSize: 11 },
+  emptyIcon: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: radius.card },
+  emptyTitle: { marginTop: 12, color: palette.text, fontSize: 14, fontWeight: '800' },
+  emptyDescription: { marginTop: 5, color: palette.textSecondary, fontSize: 11, lineHeight: 16, textAlign: 'center' },
   footerNote: { paddingHorizontal: 4, paddingVertical: 18, color: palette.textMuted, fontSize: 10, lineHeight: 15, textAlign: 'center' },
   footerSpace: { height: 18 },
   pressed: { opacity: 0.72 },
