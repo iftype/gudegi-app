@@ -70,9 +70,13 @@ export default function CategoriesScreen() {
     );
   }
 
-  function renderCategory({ item }: { item: LiveCategory }) {
+  function renderCategory({ item, index }: { item: LiveCategory; index: number }) {
     return (
-      <View style={styles.row}>
+      <View style={[
+        styles.row,
+        index === 0 && styles.rowFirst,
+        index === selectedCategories.length - 1 && styles.rowLast,
+      ]}>
         {item.posterImageUrl ? (
           <Image source={item.posterImageUrl} style={styles.poster} contentFit="cover" />
         ) : (
@@ -221,6 +225,8 @@ const styles = StyleSheet.create({
   sectionTitle: { color: palette.text, fontSize: 14, fontWeight: '800' },
   sectionHint: { flex: 1, color: palette.textMuted, fontSize: 10, textAlign: 'right' },
   row: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 10, paddingVertical: 7, backgroundColor: palette.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border },
+  rowFirst: { borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card },
+  rowLast: { borderBottomWidth: 0, borderBottomLeftRadius: radius.card, borderBottomRightRadius: radius.card },
   poster: { width: 38, height: 46, backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
   posterFallback: { width: 38, height: 46, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surfaceRaised, borderRadius: radius.control },
   rowText: { flex: 1, minWidth: 0, alignSelf: 'stretch', justifyContent: 'center' },

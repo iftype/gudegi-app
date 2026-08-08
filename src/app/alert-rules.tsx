@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { palette, radius } from '@/constants/theme';
+import { SearchClearButton } from '@/components/search-clear-button';
 import { normalizedSearchText } from '@/data/category-catalog';
 import { useAlertStore } from '@/features/alerts/alert-store';
 import type { AlertRules, CategoryFilter, LiveCategory } from '@/types';
@@ -203,11 +204,7 @@ export default function AlertRulesSheet() {
                 returnKeyType="search"
                 style={styles.searchInput}
               />
-              {!!categoryQuery && (
-                <Pressable accessibilityLabel="검색어 지우기" onPress={() => setCategoryQuery('')}>
-                  <SymbolView name={{ ios: 'xmark.circle.fill', android: 'cancel' }} size={16} tintColor={palette.textMuted} />
-                </Pressable>
-              )}
+              <SearchClearButton visible={categoryQuery.length > 0} onClear={() => setCategoryQuery('')} />
             </View>
 
             {!!categoryFilter.categoryKeys.length && (

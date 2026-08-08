@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AlertRow } from '@/components/alert-row';
 import { ScreenHeader } from '@/components/screen-header';
+import { SearchClearButton } from '@/components/search-clear-button';
 import { palette, radius } from '@/constants/theme';
 import { useAlertStore } from '@/features/alerts/alert-store';
 import { useLocalRefresh } from '@/hooks/use-local-refresh';
@@ -93,6 +94,7 @@ export default function AlertsScreen() {
             placeholderTextColor={palette.textMuted}
             style={styles.searchInput}
           />
+          <SearchClearButton visible={query.length > 0} onClear={() => setQuery('')} />
         </View>
 
         <View style={styles.tools}>

@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '@/api/client';
 import { ScreenHeader } from '@/components/screen-header';
+import { SearchClearButton } from '@/components/search-clear-button';
 import { palette, radius } from '@/constants/theme';
 import { useAlertStore } from '@/features/alerts/alert-store';
 import { openChzzkLive } from '@/navigation/open-chzzk-live';
@@ -121,10 +122,14 @@ export default function StreamersScreen() {
     );
   }
 
-  function renderStreamer({ item: streamer }: { item: Streamer }) {
+  function renderStreamer({ item: streamer, index }: { item: Streamer; index: number }) {
     const added = selected.has(streamer.channelId);
     return (
-      <View style={styles.row}>
+      <View style={[
+        styles.row,
+        index === 0 && styles.rowFirst,
+        index === catalog.length - 1 && styles.rowLast,
+      ]}>
         <Pressable
           accessibilityLabel={streamer.isLive ? `${streamer.channelName} 방송 열기` : `${streamer.channelName} 프로필`}
           disabled={!streamer.isLive}
@@ -208,6 +213,7 @@ export default function StreamersScreen() {
                   placeholderTextColor={palette.textMuted}
                   style={styles.input}
                 />
+                <SearchClearButton visible={query.length > 0} onClear={() => setQuery('')} />
               </View>
               <Pressable
                 accessibilityLabel={allVisibleSelected ? '불러온 목록 전체 해제' : '불러온 목록 전체 추가'}
@@ -284,6 +290,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: palette.border,
   },
+  rowFirst: { borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card },
+  rowLast: { borderBottomWidth: 0, borderBottomLeftRadius: radius.card, borderBottomRightRadius: radius.card },
   avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: palette.surfaceRaised },
   avatarFallback: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, backgroundColor: palette.surfaceRaised },
   avatarText: { color: palette.text, fontWeight: '900' },

@@ -10,7 +10,7 @@ import { useAlertStore } from '@/features/alerts/alert-store';
 import type { StreamerAlertEvent } from '@/types';
 
 const eventPresentation = {
-  live_started: { label: '방송 시작', icon: { ios: 'play.fill' as const, android: 'play_arrow' as const } },
+  live_started: { label: '기록 시작', icon: { ios: 'play.fill' as const, android: 'play_arrow' as const } },
   live_ended: { label: '방송 종료', icon: { ios: 'stop.fill' as const, android: 'stop' as const } },
   title_changed: { label: '방제 변경', icon: { ios: 'textformat' as const, android: 'title' as const } },
   category_changed: { label: '카테고리 변경', icon: { ios: 'tag.fill' as const, android: 'sell' as const } },

@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { palette, radius } from '@/constants/theme';
+import { SearchClearButton } from '@/components/search-clear-button';
 import { normalizedSearchText } from '@/data/category-catalog';
 import { useAlertStore } from '@/features/alerts/alert-store';
 import type { LiveCategory } from '@/types';
@@ -112,9 +113,9 @@ export default function CategoryPickerSheet() {
           placeholder="게임이나 카테고리 검색"
           placeholderTextColor={palette.textMuted}
           returnKeyType="search"
-          clearButtonMode="while-editing"
           style={styles.input}
         />
+        <SearchClearButton visible={query.length > 0} onClear={() => setQuery('')} />
       </View>
       <FlatList
         data={results}
